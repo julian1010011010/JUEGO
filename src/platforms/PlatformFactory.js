@@ -198,30 +198,7 @@ export default class PlatformFactory {
         break
       }
       case 'inversa': {
-        PlatformFactory.applyTypeMeta(plat, 'inversa')
-        plat.setTint(0x000000)
-
-        // Movimiento opuesto al del jugador (solo mientras se mueve)
-        plat._inversaTween = scene.time.addEvent({
-          delay: 16,
-          loop: true,
-          callback: () => {
-            if (!scene.player || !plat.active) return
-            const body = scene.player.body
-            if (body && Math.abs(body.velocity.x) > 0.1) {
-              const speed = 2
-              plat.x -= Math.sign(body.velocity.x) * speed
-              plat.refreshBody()
-            }
-          }
-        })
-        plat.once('destroy', () => plat._inversaTween?.remove(false))
-
-        // Efecto de tintado del jugador mientras hay solape
-        const mgr = scene.playerColorManager || (scene.playerColorManager = new PlayerColorManager(scene, scene.player ?? null))
-        if (!mgr.player && scene.player) mgr.setPlayer(scene.player)
-        mgr.applyWhileOverlap(plat, 0x000000, 80)
-        plat.once('destroy', () => mgr.stopFor(plat, true))
+        this.applyInversaBehavior(scene, plat)
         break
       }
       default: {
@@ -229,6 +206,39 @@ export default class PlatformFactory {
         plat.clearTint()
       }
     }
+  }
+
+  /**
+   * Aplica comportamiento para plataforma 'inversa'.
+   * - Meta/tinte.
+   * - Evento que mueve la plataforma en sentido opuesto a la velocidad del jugador.
+   * - Tintado del jugador mientras solapa con la plataforma.
+   */
+  applyInversaBehavior(scene, plat) {
+    PlatformFactory.applyTypeMeta(plat, 'inversa')
+    plat.setTint(0x000000)
+
+    // Movimiento opuesto al del jugador (solo mientras se mueve)
+    plat._inversaTween = scene.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => {
+        if (!scene.player || !plat.active) return
+        const body = scene.player.body
+        if (body && Math.abs(body.velocity.x) > 0.1) {
+          const speed = 2
+          plat.x -= Math.sign(body.velocity.x) * speed
+          plat.refreshBody()
+        }
+      }
+    })
+    plat.once('destroy', () => plat._inversaTween?.remove(false))
+
+    // Efecto de tintado del jugador mientras hay solape
+    const mgr = scene.playerColorManager || (scene.playerColorManager = new PlayerColorManager(scene, scene.player ?? null))
+    if (!mgr.player && scene.player) mgr.setPlayer(scene.player)
+    mgr.applyWhileOverlap(plat, 0x000000, 80)
+    plat.once('destroy', () => mgr.stopFor(plat, true))
   }
 
   /**
