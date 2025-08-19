@@ -733,6 +733,9 @@ export default class PlatformFactory {
     PlatformFactory.setTypeFlags(plat, typeKey)
     this.applyTypeBehavior(scene, plat, typeKey)
 
+  // Intentar spawnear un poder encima según config
+  try { scene.powerManager?.maybeSpawnAbovePlatform?.(plat) } catch {}
+
   // 15% móviles si no son dodger, hielo, elástica ni inversa X, salvo que se fuerce no mover
   const noMove = !!(options && options.noMove)
   plat.isMoving = !noMove && !plat.isDodger && !plat.isIce && !plat.isBouncy && !plat.isInvertX && Math.random() < 0.15
@@ -759,6 +762,13 @@ export default class PlatformFactory {
             zone.x = target.x
             zone.y = target.y - target.displayHeight / 2 - zone.displayHeight / 2
             zone.refreshBody()
+          }
+          // Mantener pickup de poder alineado si existe
+          const pickup = target.powerPickup
+          if (pickup && pickup.body) {
+            pickup.x = target.x
+            pickup.y = target.y - target.displayHeight / 2 - 22
+            pickup.refreshBody?.()
           }
         }
       })

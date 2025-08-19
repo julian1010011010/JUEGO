@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import PlatformFactory from '../platforms/PlatformFactory'
+import PowerManager from '../powers/PowerManager'
 import PlayerController from '../player/PlayerController'
 import gameConfig from '../config/gameConfig'
 import LavaParticle from '../effects/LavaParticle'
@@ -82,9 +83,9 @@ export default class GameScene extends Phaser.Scene {
     // Asegura la textura 1x1 para cualquier uso antes de crear emisores/misiles
     this.ensurePxTexture()
 
-    // Grupo de plataformas y fábrica
+  // Grupo de plataformas y fábrica
     this.platforms = this.physics.add.staticGroup()
-    this.platformFactory = new PlatformFactory(this)
+  this.platformFactory = new PlatformFactory(this)
 
     // Crear plataformas iniciales
    const startOffset = Number(gameConfig?.platforms?.startYOffset) || 50
@@ -96,7 +97,7 @@ export default class GameScene extends Phaser.Scene {
     for (let i = 0; i < 12; i++) {
   const x = this.pickSpawnX()
       const y = startY - i * 70
-      this.platformFactory.spawn(x, y, this.pickPlatformType())
+  this.platformFactory.spawn(x, y, this.pickPlatformType())
     } 
   // Plataforma base bajo el jugador (siempre normal y sin movimiento)
   this.platformFactory.spawn(baseX, baseY, 'normal', { noMove: true, allowBaseX: true, isBase: true })
@@ -128,6 +129,13 @@ export default class GameScene extends Phaser.Scene {
     }
     if (trail) trail.following = true
   }
+
+  // Poderes temporales (instanciar después de crear al jugador)
+  this.powerManager = new PowerManager(this)
+  // Generar posibles poderes sobre las plataformas ya creadas
+  this.platforms.children.iterate(plat => {
+    try { this.powerManager?.maybeSpawnAbovePlatform?.(plat) } catch {}
+  })
 
     // Contador de metros ascendidos (texto normal estilo pixel art)
     this.metersText = this.add.text(12, 12, '0 m', {
@@ -225,6 +233,8 @@ export default class GameScene extends Phaser.Scene {
   // Limpieza del controlador de jugador
   this.playerCtrl?.destroy?.()
   this.playerCtrl = null
+  this.powerManager?.deactivate?.()
+  this.powerManager = null
     })
 
     // Inicializa estado de cruce de plataformas
@@ -281,6 +291,7 @@ export default class GameScene extends Phaser.Scene {
 
   // Delega la lógica de movimiento/salto/wrap al controlador
   this.playerCtrl?.update?.()
+  this.powerManager?.update?.()
 
     // Generación y limpieza de plataformas
     const camY = this.cameras.main.worldView.y

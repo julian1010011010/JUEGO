@@ -45,6 +45,18 @@ const gameConfig = {
     }
   },
 
+  // Poderes temporales
+  powers: {
+    enabled: true,
+    // Probabilidad de generar un poder por plataforma creada (0–1)
+    spawnChancePerPlatform: 0.12,
+    // Config específico del modo sin gravedad
+    noGravity: {
+      durationMs: 5000, // duración del poder activo
+      floatSpeed: 60    // velocidad de ascenso automática mientras dura
+    }
+  },
+
   // NUEVO: margen adicional antes de morir por tocar la lava (en píxeles)
   lava: {
     killMargin: 6
