@@ -292,7 +292,7 @@ export default class GameScene extends Phaser.Scene {
         const maxStep = (this.lavaRiseSpeed * this.game.loop.delta) / 1000
         this.lava.y = Math.max(targetY, currentY - maxStep)
       }
-      this.lava.tilePositionX += 0.4
+    this.lava.tilePositionY -= 0.4
 
   // Reposicionar emisores en el borde superior de la lava
   if (this.lavaFlames) this.lavaFlames.setPosition(0, this.lava.y - 2)
@@ -443,15 +443,32 @@ export default class GameScene extends Phaser.Scene {
     g.strokeRoundedRect(1, 1, 88, 16, 8)
     g.generateTexture('platform', 90, 18)
 
-    // Lava tile (64x32)
+    // Lava tile (64x32) - líneas onduladas y puntos más aleatorios
     g.clear()
     const w = 64, h = 32
     g.fillStyle(0xdc2626, 1)
     g.fillRect(0, 0, w, h)
+    // Líneas rojas oscuras onduladas
     g.fillStyle(0x991b1b, 1)
-    for (let y = 4; y < h; y += 8) g.fillRect(0, y, w, 3)
+    for (let y = 4; y < h; y += 8) {
+      g.beginPath()
+      for (let x = 0; x <= w; x += 2) {
+        const offset = Math.sin((x / w) * Math.PI * 2 + y) * 3
+        if (x === 0) g.moveTo(x, y + offset)
+        else g.lineTo(x, y + offset)
+      }
+      g.lineTo(w, y + 3)
+      g.lineTo(0, y + 3)
+      g.closePath()
+      g.fillPath()
+    }
+    // Puntos amarillos más aleatorios
     g.fillStyle(0xf59e0b, 1)
-    for (let i = 0; i < 6; i++) g.fillCircle(Phaser.Math.Between(4, w - 4), Phaser.Math.Between(4, h - 4), Phaser.Math.Between(2, 4))
+    for (let i = 0; i < 12; i++) {
+      const px = Phaser.Math.Between(4, w - 4) + Phaser.Math.Between(-2, 2)
+      const py = Phaser.Math.Between(4, h - 4) + Phaser.Math.Between(-2, 2)
+      g.fillCircle(px, py, Phaser.Math.Between(2, 4))
+    }
     g.generateTexture('lava', w, h)
 
     // Pulgar arriba (simple)
