@@ -349,41 +349,98 @@ export default class PlatformFactory {
     mgr.applyWhileOverlap(plat, PlatformFactory.PLATFORM_TYPES.invertX.color, 80)
     plat.once('destroy', () => mgr.stopFor(plat, true))
 
-    // Teclas a observar (flechas y A/D). Se crean una sola vez por plataforma.
-    const keys = scene.input?.keyboard?.addKeys
-      ? scene.input.keyboard.addKeys({
-          LEFT: Phaser.Input.Keyboard.KeyCodes.LEFT,
-          RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
-          A: Phaser.Input.Keyboard.KeyCodes.A,
-          D: Phaser.Input.Keyboard.KeyCodes.D
-        })
-      : null
+    // Estado global del efecto inverso (una sola vez por escena)
+    const G = (scene._invertXGlobal = scene._invertXGlobal || {
+      active: false, owner: null, keys: null, handler: null,
+      // NUEVO: sensor y handler de desactivación por “suelo”
+      footZone: null, deactivateHandler: null
+    })
 
-    // REEMPLAZO: aplicar inversión al final del frame para evitar ping‑pong con el update del jugador
-    plat._invertXHandler = () => {
-      const player = scene.player
-      if (!plat.active || !player || !invZone.body) return
-      if (!scene.physics.world.overlap(player, invZone)) return
-
-      const body = player.body
-      if (!body) return
-
-      const leftDown = !!(keys?.LEFT?.isDown || keys?.A?.isDown)
-      const rightDown = !!(keys?.RIGHT?.isDown || keys?.D?.isDown)
-      // Solo cuando hay una dirección activa
-      if (leftDown === rightDown) return
-
-      const dir = rightDown ? 1 : -1
-      const base = 240
-      player.setVelocityX?.(-dir * base)
+    // Teclas globales observadas (se crean una sola vez)
+    if (!G.keys && scene.input?.keyboard?.addKeys) {
+      G.keys = scene.input.keyboard.addKeys({
+        LEFT: Phaser.Input.Keyboard.KeyCodes.LEFT,
+        RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+        A: Phaser.Input.Keyboard.KeyCodes.A,
+        D: Phaser.Input.Keyboard.KeyCodes.D
+      })
     }
-    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, plat._invertXHandler)
 
-    // Limpieza (elimina también cualquier bucle anterior si lo hubiera)
+    // Handler global: aplica inversión si el efecto está activo
+    if (!G.handler) {
+      G.handler = () => {
+        if (!G.active || !scene.player) return
+        const player = scene.player
+        const body = player.body
+        if (!body) return
+        const leftDown = !!(G.keys?.LEFT?.isDown || G.keys?.A?.isDown)
+        const rightDown = !!(G.keys?.RIGHT?.isDown || G.keys?.D?.isDown)
+        if (leftDown === rightDown) return
+        const dir = rightDown ? 1 : -1
+        const base = 240
+        player.setVelocityX?.(-dir * base)
+      }
+      scene.events.on(Phaser.Scenes.Events.POST_UPDATE, G.handler)
+    }
+
+    // Activador local: si el jugador está sobre ESTA plataforma, activa el efecto y marca dueño
+    plat._invertXActivator = () => {
+      const player = scene.player
+      if (!plat.active || !player || !plat.invertZone?.body) return
+      if (scene.physics.world.overlap(player, plat.invertZone)) {
+        G.active = true
+        G.owner = plat
+      }
+    }
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, plat._invertXActivator)
+
+    // NUEVO: desactivación fiable usando un sensor bajo los pies
+    if (!G.deactivateHandler) {
+      // Crear footZone una sola vez
+      PlatformFactory.ensurePxTexture(scene)
+      G.footZone = scene.physics.add.image(0, 0, 'px')
+        .setVisible(false)
+        .setAlpha(0)
+        .setImmovable(true)
+      G.footZone.body.allowGravity = false
+
+      G.deactivateHandler = () => {
+        if (!G.active || !scene.player) return
+        const player = scene.player
+        const pb = player.body
+        if (!pb) return
+
+        // Solo comprobar cuando está en el suelo
+        if (!(pb.blocked?.down || pb.touching?.down || player.body.onFloor?.())) return
+
+        // Posicionar el sensor bajo los pies y dimensionarlo al ancho del jugador
+        const fh = 4
+        G.footZone.setDisplaySize(player.displayWidth, fh)
+        G.footZone.body.setSize(G.footZone.displayWidth, fh, true)
+        G.footZone.body.reset(pb.center.x, pb.bottom + fh / 2 + 1)
+
+        // ¿Toca una plataforma distinta al owner?
+        let touchedDifferent = false
+        scene.physics.overlap(G.footZone, scene.platforms, (zone, other) => {
+          if (!other) return
+          if (G.owner && other === G.owner) return
+          touchedDifferent = true
+        })
+
+        if (touchedDifferent) {
+          G.active = false
+          G.owner = null
+        }
+      }
+
+      scene.events.on(Phaser.Scenes.Events.POST_UPDATE, G.deactivateHandler)
+    }
+
+    // Limpieza del activador y zona al destruir esta plataforma (el handler global se conserva)
     plat.once('destroy', () => {
-      scene.events.off(Phaser.Scenes.Events.POST_UPDATE, plat._invertXHandler)
-      invZone.destroy()
-      // ...existing code (mgr.stopFor si aplica)...
+      scene.events.off(Phaser.Scenes.Events.POST_UPDATE, plat._invertXActivator)
+      plat.invertZone?.destroy()
+      // ...existing code...
     })
   }
 
