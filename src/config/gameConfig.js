@@ -41,7 +41,7 @@ const gameConfig = {
       dodger: 10,
       invertX: 10,
       bouncy: 10,
-      inversa: 90,
+      inversa: 10,
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     },
   },
