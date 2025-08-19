@@ -211,7 +211,9 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(800, () => (this.canLose = true))
 
     // Iniciar spawner tras el primer frame (evita carreras tras F5/reintentar)
-    this.events.once('postupdate', () => this.startLavaMissileSpawner())
+    this.events.once('postupdate', () => {
+      if (this.isLavaMissileEnabled()) this.startLavaMissileSpawner()
+    })
 
     // Limpiar al reiniciar/cerrar escena
     this.events.once('shutdown', () => {
@@ -458,45 +460,77 @@ export default class GameScene extends Phaser.Scene {
 
   // Spawnea un pixel de lava que parpadea y luego se dispara al jugador
   spawnLavaParticle() {
+    if (!this.isLavaMissileEnabled()) return null
     if (!this.lava || !this.lavaMissiles) return null
     const width = this.scale.width
     const x = Phaser.Math.Between(6, width - 6)
     const y = this.lava.y - 2
     const speed = this.getLavaMissileSpeed?.() ?? 420
     const size = this.getLavaMissileSize?.() ?? 3
-const missile = new LavaParticle(this, x, y, { delay: 2000, speed, size });
+    const missile = new LavaParticle(this, x, y, { delay: 2000, speed, size })
     this.lavaMissiles.add(missile)
     return missile
   }
 
   // Inicia o reinicia el temporizador de misiles con el delay configurado
   startLavaMissileSpawner() {
+    // No crear ni mantener timers si está deshabilitado o sin delay válido
+    if (!this.isLavaMissileEnabled()) {
+      this._lavaMissileTimer?.remove(false)
+      this._lavaMissileTimer = null
+      return
+    }
+    const initialDelay = this.getNextLavaMissileDelay?.()
+    if (!(initialDelay > 0 && isFinite(initialDelay))) {
+      this._lavaMissileTimer?.remove(false)
+      this._lavaMissileTimer = null
+      return
+    }
+
     this._lavaMissileTimer?.remove(false)
     this._lavaMissileTimer = this.time.addEvent({
-      delay: this.getNextLavaMissileDelay?.() ?? 3000,
+      delay: initialDelay,
       loop: true,
       callback: () => {
-        if (this._ended || !this.canLose) return
+        if (this._ended || !this.canLose || !this.isLavaMissileEnabled()) return
         const n = this.getLavaMissileCount?.() ?? 1
         for (let i = 0; i < n; i++) this.spawnLavaParticle()
+
         // Si el delay es fijo, no reasignamos; si es rango, re-evaluamos
         if (this._lavaMissileTimer && !this.isFixedLavaMissileDelay?.()) {
-          this._lavaMissileTimer.delay = this.getNextLavaMissileDelay?.() ?? 3000
+          const next = this.getNextLavaMissileDelay?.() ?? 3000
+          if (next > 0) this._lavaMissileTimer.delay = next
         }
       }
     })
   }
 
+  // Helper: flag centralizado para habilitar/deshabilitar misiles por config
+  isLavaMissileEnabled() {
+    return !!(gameConfig?.lavaMissiles?.enabled)
+  }
+
   // Lee el rango o valor fijo para el spawn de misiles (ms)
   getNextLavaMissileDelay() {
     const lm = gameConfig?.lavaMissiles || {}
+
+    // 0) Tasa por minuto (si > 0, tiene prioridad)
+    const rpm = Number(lm.ratePerMinute)
+    if (isFinite(rpm) && rpm > 0) {
+      return Math.max(50, Math.round(60000 / rpm))
+    }
+
     // 1) Fijo en segundos
     if (typeof lm.intervalSeconds === 'number' && isFinite(lm.intervalSeconds)) {
-      return Math.max(0, lm.intervalSeconds) * 1000
+      const s = lm.intervalSeconds
+      if (s <= 0) return 3000 // evita 0 ms
+      return Math.max(50, s * 1000)
     }
     // 2) Fijo en ms
     if (typeof lm.intervalMs === 'number' && isFinite(lm.intervalMs)) {
-      return Math.max(0, lm.intervalMs)
+      const ms = lm.intervalMs
+      if (ms <= 0) return 3000 // evita 0 ms
+      return Math.max(50, ms)
     }
     // 3) Rango {min,max} en ms
     const cfg = lm.intervalMs
@@ -509,11 +543,13 @@ const missile = new LavaParticle(this, x, y, { delay: 2000, speed, size });
     return 3000
   }
 
-  // Indica si el delay es fijo (no aleatorio)
+  // Indica si el delay es fijo (no aleatorio) y válido (> 0)
   isFixedLavaMissileDelay() {
     const lm = gameConfig?.lavaMissiles || {}
-    return (typeof lm.intervalSeconds === 'number' && isFinite(lm.intervalSeconds)) ||
-           (typeof lm.intervalMs === 'number' && isFinite(lm.intervalMs))
+    if (Number(lm.ratePerMinute) > 0) return true
+    if (typeof lm.intervalSeconds === 'number') return lm.intervalSeconds > 0
+    if (typeof lm.intervalMs === 'number') return lm.intervalMs > 0
+    return false
   }
 
   // NUEVO: lee la velocidad desde config (número fijo o rango)
@@ -528,24 +564,21 @@ const missile = new LavaParticle(this, x, y, { delay: 2000, speed, size });
     return 420
   }
 
- 
-// Respeta número o rango {min,max} desde gameConfig, sin capado 4–10
-getLavaMissileSize() {
-  const cfg = gameConfig?.lavaMissiles?.size
-  // Límite de seguridad opcional (evita tamaños absurdos)
-  const HARD_MAX = 512
+  // Respeta número o rango {min,max} desde gameConfig, sin capado 4–10
+  getLavaMissileSize() {
+    const cfg = gameConfig?.lavaMissiles?.size
+    const HARD_MAX = 512
+    if (typeof cfg === 'number') {
+      return Math.min(HARD_MAX, Math.max(1, Math.round(cfg)))
+    }
+    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+      const min = Math.max(1, Math.round(cfg.min ?? 1))
+      const max = Math.max(min, Math.round(cfg.max ?? min))
+      return Phaser.Math.Between(min, Math.min(max, HARD_MAX))
+    }
+    return 4
+  }
 
-  if (typeof cfg === 'number') {
-    return Math.min(HARD_MAX, Math.max(1, Math.round(cfg)))
-  }
-  if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
-    const min = Math.max(1, Math.round(cfg.min ?? 1))
-    const max = Math.max(min, Math.round(cfg.max ?? min))
-    return Phaser.Math.Between(min, Math.min(max, HARD_MAX))
-  }
-  return 4 // fallback razonable si no hay config
-}
-Tip
   // NUEVO: lee la cantidad por tick desde config (número fijo o rango)
   getLavaMissileCount() {
     const cfg = gameConfig?.lavaMissiles?.count

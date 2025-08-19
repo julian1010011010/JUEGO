@@ -1,11 +1,14 @@
 const gameConfig = {
   // Frecuencia de misiles de lava (en milisegundos)
   lavaMissiles: {
+    // NUEVO: habilitar/deshabilitar completamente los misiles de lava
+    enabled: false,
+
     // NUEVO: tasa de generación por minuto (si se define, ignora intervalSeconds/intervalMs)
     ratePerMinute: 0, // 0 para desactivar
 
-    // Puedes seguir usando intervalSeconds como respaldo si no usas ratePerMinute
-    // intervalSeconds: 1.5,
+    // Asegura que, aunque se use el respaldo, no se generen misiles
+    intervalSeconds: 0,
 
     // Velocidad de la partícula en px/s (acepta número o {min,max})
     speed: { min: 100, max: 200 },
