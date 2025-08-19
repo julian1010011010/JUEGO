@@ -4,7 +4,9 @@ const gameConfig = {
     // Puedes usar min/max para definir un rango aleatorio
     intervalMs: { min: 220, max: 420 },
     // NUEVO: velocidad de la partícula en px/s (acepta número o {min,max})
-    speed: { min: 30, max: 50 }
+    speed: { min: 200, max: 300 },
+    // NUEVO: tamaño visual/collider en píxeles (acepta número o {min,max})
+    size: { min: 3, max: 9 }
   },
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)

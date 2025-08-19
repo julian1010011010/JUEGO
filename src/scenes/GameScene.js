@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import PlatformFactory from '../platforms/PlatformFactory'
-import LavaParticle from '../effects/LavaParticle'
 import gameConfig from '../config/gameConfig'
+import LavaParticle from '../effects/LavaParticle'
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -50,7 +50,18 @@ export default class GameScene extends Phaser.Scene {
     const width = this.scale.width
     const height = this.scale.height
 
-  // ...el fondo de volcán ha sido eliminado...
+    // Reanudar física y resetear estado al reiniciar
+    this.physics.resume?.()
+    this._ended = false
+    this._playedLavaAnim = false
+    this.hasAscended = false
+    this.score = 0
+    this.lastGroundTime = 0
+    this.currentPlatform = null
+    this._onIceUntil = 0
+
+    // Asegura la textura 1x1 para cualquier uso antes de crear emisores/misiles
+    this.ensurePxTexture()
 
     // Grupo de plataformas y fábrica
     this.platforms = this.physics.add.staticGroup()
@@ -88,6 +99,9 @@ export default class GameScene extends Phaser.Scene {
       }
     })
     this.metersText.setOrigin(0, 0)
+    // Fijar a la cámara y por encima
+    this.metersText.setScrollFactor(0, 0)
+    this.metersText.setDepth(1000)
 
     // Colisiones jugador <-> plataformas
     this.physics.add.collider(this.player, this.platforms, (player, plat) => {
@@ -148,10 +162,10 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setDepth(1)
 
-  // Partículas de lava: fuego y piedritas pixeladas
-  this.createLavaParticles()
+    // Partículas de lava: fuego y piedritas pixeladas (requiere 'px')
+    this.createLavaParticles()
 
-    // Grupo de misiles de lava y colisión con jugador
+    // Grupo de misiles y overlap (siempre)
     this.lavaMissiles = this.physics.add.group()
     this.physics.add.overlap(this.player, this.lavaMissiles, () => {
       if (!this._ended && this.canLose) this.gameOver('lava')
@@ -175,17 +189,16 @@ export default class GameScene extends Phaser.Scene {
     this.canLose = false
     this.time.delayedCall(800, () => (this.canLose = true))
 
-    // Temporizador de misiles de lava usando configuración
-    this._lavaMissileTimer = this.time.addEvent({
-      delay: this.getNextLavaMissileDelay(),
-      loop: true,
-      callback: () => {
-        if (this._ended || !this.canLose) return
-        this.spawnLavaParticle?.()
-        if (this._lavaMissileTimer) {
-          this._lavaMissileTimer.delay = this.getNextLavaMissileDelay()
-        }
-      }
+    // Iniciar spawner tras el primer frame (evita carreras tras F5/reintentar)
+    this.events.once('postupdate', () => this.startLavaMissileSpawner())
+
+    // Limpiar al reiniciar/cerrar escena
+    this.events.once('shutdown', () => {
+      this._lavaMissileTimer?.remove(false)
+      this._lavaMissileTimer = null
+      this.lavaMissiles?.clear(true, true)
+      this.lavaFlames?.destroy()
+      this.lavaRocks?.destroy()
     })
 
     // Inicializa estado de cruce de plataformas
@@ -412,14 +425,53 @@ export default class GameScene extends Phaser.Scene {
     return minY
   }
 
+  // Spawnea un pixel de lava que parpadea y luego se dispara al jugador
+  spawnLavaParticle() {
+    if (!this.lava || !this.lavaMissiles) return null
+    const width = this.scale.width
+    const x = Phaser.Math.Between(6, width - 6)
+    const y = this.lava.y - 2
+    const speed = this.getLavaMissileSpeed?.() ?? 420
+    const size = this.getLavaMissileSize?.() ?? 3
+    const missile = new LavaParticle(this, x, y, { delay: 2000, speed, size })
+    this.lavaMissiles.add(missile)
+    return missile
+  }
+
+  // Inicia o reinicia el temporizador de misiles con el delay configurado
+  startLavaMissileSpawner() {
+    this._lavaMissileTimer?.remove(false)
+    this._lavaMissileTimer = this.time.addEvent({
+      delay: this.getNextLavaMissileDelay?.() ?? 3000,
+      loop: true,
+      callback: () => {
+        if (this._ended || !this.canLose) return
+        this.spawnLavaParticle()
+        if (this._lavaMissileTimer) {
+          this._lavaMissileTimer.delay = this.getNextLavaMissileDelay?.() ?? 3000
+        }
+      }
+    })
+  }
+
+  // Garantiza que exista la textura 'px' antes de usarla en emisores/sprites
+  ensurePxTexture() {
+    if (!this.textures.exists('px')) {
+      const g = this.make.graphics({ x: 0, y: 0, add: false })
+      g.fillStyle(0xffffff, 1)
+      g.fillRect(0, 0, 1, 1)
+      g.generateTexture('px', 1, 1)
+      g.destroy()
+    }
+  }
+
   gameOver(cause) {
     if (this._ended) return
+    // Parar spawner y limpiar misiles restantes
     this._ended = true
     this.physics.pause()
-    // Detener spawner de misiles si existe
     this._lavaMissileTimer?.remove(false)
     this._lavaMissileTimer = null
-    // Limpiar misiles restantes
     if (this.lavaMissiles) this.lavaMissiles.children.iterate(m => m && m.destroy())
 
     this.best = Math.max(this.best, this.score)
@@ -610,18 +662,6 @@ export default class GameScene extends Phaser.Scene {
     }).setDepth(2)
   }
 
-  // Spawnea un pixel de lava que parpadea 2s y luego se dispara al jugador
-  spawnLavaParticle() {
-    if (!this.lava) return null
-    const width = this.scale.width
-    const x = Phaser.Math.Between(6, width - 6)
-    const y = this.lava.y - 2
-    const speed = this.getLavaMissileSpeed()
-    const missile = new LavaParticle(this, x, y, { delay: 2000, speed })
-    this.lavaMissiles.add(missile)
-    return missile
-  }
-
   // Selección ponderada del tipo de plataforma según config
   pickPlatformType() {
     const weights = (gameConfig.platforms && gameConfig.platforms.weights) || {}
@@ -655,6 +695,18 @@ export default class GameScene extends Phaser.Scene {
       return Phaser.Math.Between(min, max)
     }
     return 420
+  }
+
+  // NUEVO: lee el tamaño desde config (número fijo o rango)
+  getLavaMissileSize() {
+    const cfg = gameConfig?.lavaMissiles?.size
+    if (typeof cfg === 'number') return Math.max(1, cfg)
+    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+      const min = Math.max(1, cfg.min ?? 3)
+      const max = Math.max(min, cfg.max ?? min)
+      return Phaser.Math.Between(min, max)
+    }
+    return 3
   }
 }
 

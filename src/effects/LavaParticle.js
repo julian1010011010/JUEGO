@@ -6,14 +6,26 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this)
     scene.physics.add.existing(this)
 
+    // Garantiza textura 'px' si aún no existe (reload/reintentar)
+    if (!scene.textures.exists('px')) {
+      const g = scene.make.graphics({ x: 0, y: 0, add: false })
+      g.fillStyle(0xffffff, 1)
+      g.fillRect(0, 0, 1, 1)
+      g.generateTexture('px', 1, 1)
+      g.destroy()
+    }
+    this.setTexture('px')
+
     // Opciones
     this.delayMs = opts.delay ?? 2000
     this.speed = opts.speed ?? 420
+    this.size = Phaser.Math.Clamp(opts.size ?? 3, 1, 64)
 
     // Pixel visible y con colisión razonable
     this.setDepth(2)
-    this.setScale(3)
-    if (this.body && this.body.setSize) this.body.setSize(6, 6, true)
+    this.setDisplaySize(this.size, this.size)
+    if (this.body && this.body.setSize) this.body.setSize(this.size, this.size, true)
+    if (this.body && this.body.updateFromGameObject) this.body.updateFromGameObject()
     this.setBlendMode(Phaser.BlendModes.ADD)
     this.setActive(true).setVisible(true)
     // Importante: sin gravedad mientras "carga" y sin movimiento
@@ -50,6 +62,7 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
     if (this._waiting && this.scene.lava) {
       this.y = this.scene.lava.y - 2
       this.setVelocity(0, 0)
+      if (this.body && this.body.updateFromGameObject) this.body.updateFromGameObject()
     }
   }
 
