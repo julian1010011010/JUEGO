@@ -2,12 +2,12 @@ import Phaser from 'phaser'
 
 export default class PlatformFactory {
   static PLATFORM_TYPES = {
-    fragile:   { name: 'Frágil',      color: 0xffa3a3, typeChance: 0.10 }, // 10%
-    timed:     { name: 'Temporizada', color: 0xfacc15, typeChance: 0.15 }, // 15%
-    dodger:    { name: 'Escurridiza', color: 0xa78bfa, typeChance: 0.15 }, // 15%
-    ice:       { name: 'Hielo',       color: 0x60a5fa, typeChance: 0.15 }, // 15%
-    normal:    { name: 'Normal',      color: null,     typeChance: 0.45 }, // 45%
-    moving:    { name: 'Móvil',       color: 0x34d399, typeChance: 0.15 }, // 15% (solo si se quiere mostrar)
+  fragile:   { name: 'Frágil',      color: 0xff1744, typeChance: 0.10 }, // rojo vivo
+  timed:     { name: 'Temporizada', color: 0xffea00, typeChance: 0.15 }, // amarillo neón
+  dodger:    { name: 'Escurridiza', color: 0x651fff, typeChance: 0.15 }, // violeta intenso
+  ice:       { name: 'Hielo',       color: 0x00e5ff, typeChance: 0.15 }, // celeste brillante
+  normal:    { name: 'Normal',      color: null,     typeChance: 0.45 }, // sin color
+  // Eliminada la plataforma 'moving' por no tener poder
   }
   /**
    * @param {Phaser.Scene} scene

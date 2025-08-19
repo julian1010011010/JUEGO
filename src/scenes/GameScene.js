@@ -58,11 +58,28 @@ export default class GameScene extends Phaser.Scene {
     // Plataforma base bajo el jugador
     this.platformFactory.spawn(width / 2, height - 60)
 
-    // Jugador
-    this.player = this.physics.add.sprite(width / 2, height - 120, 'player')
-    this.player.setBounce(0.05)
-    this.player.setCollideWorldBounds(false)
-    this.player.body.setSize(24, 28)
+  // Jugador
+  this.player = this.physics.add.sprite(width / 2, height - 120, 'player')
+  this.player.setBounce(0.05)
+  this.player.setCollideWorldBounds(false)
+  this.player.body.setSize(24, 28)
+
+    // Contador de metros ascendidos (texto normal estilo pixel art)
+    this.metersText = this.add.text(12, 12, '0 m', {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#00e5ff',
+      stroke: '#222',
+      strokeThickness: 3,
+      shadow: {
+        offsetX: 2,
+        offsetY: 2,
+        color: '#000',
+        blur: 0,
+        fill: true
+      }
+    })
+    this.metersText.setOrigin(0, 0)
 
     // Colisiones jugador <-> plataformas
     this.physics.add.collider(this.player, this.platforms, (player, plat) => {
@@ -73,6 +90,13 @@ export default class GameScene extends Phaser.Scene {
       if (landing || pb.touching.down || pb.blocked.down) {
         this.lastGroundTime = this.time.now
         this.currentPlatform = plat
+
+        // Pintar el personaje del color de la plataforma actual
+        if (plat.typeColor) {
+          this.player.setTint(plat.typeColor)
+        } else {
+          this.player.clearTint()
+        }
 
         // Temporizadas: cuentan 2s si sigues encima
         if (plat.isTimed && !plat._timing) {
@@ -148,6 +172,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update() {
+    // Actualizar metros ascendidos
+    if (this.metersText && this.player) {
+      // Calcula la altura ascendida desde el punto inicial (this.scale.height - 120)
+      const metros = Math.max(0, Math.round((this.scale.height - 120 - this.player.y) / 10))
+      this.metersText.setText(`${metros} m`)
+    }
     // Animar lava cayendo y humo del volcán
     if (this.volcanoSprite && this.textures.exists('volcano_bg')) {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -317,9 +347,9 @@ export default class GameScene extends Phaser.Scene {
 
     // Muerte por lava: usa borde inferior visible de la cámara
     if (!this._ended && this.canLose && this.player && this.player.body) {
-      const worldLavaTop = this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset
-      const playerBottom = this.player.body.bottom
-      if (playerBottom >= worldLavaTop - this.lavaKillMargin) this.gameOver('lava')
+  const worldLavaTop = this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset
+  const playerBottom = this.player.body.bottom
+  if (playerBottom >= worldLavaTop) this.gameOver('lava')
     }
 
     // Cámara solo-subida
