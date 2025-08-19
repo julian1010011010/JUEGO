@@ -16,7 +16,7 @@ export default class PlatformFactory {
     ice:     { name: 'Hielo', color: 0x18FFFF, typeChance: 0.15 },       // Cian hielo
     bouncy:  { name: 'Elástica', color: 0x00E676, typeChance: 0.12 },    // Verde resorte
     invertX: { name: 'Inversa X', color: 0xF50057, typeChance: 0.10 },   // Rosa fuerte (controles invertidos)
-    normal:  { name: 'Normal', color: null, typeChance: 0.45 },
+    normal:  { name: 'Normal', color: 0x00F59E, typeChance: 0.45 },
     inversa: { name: 'Inversa', color: 0x000000, typeChance: 0.10 },     // Negro (opuesto al jugador)
     // Eliminada la plataforma 'moving' por no tener poder
   }
@@ -315,8 +315,12 @@ export default class PlatformFactory {
         break
       }
       default: {
-        PlatformFactory.applyTypeMeta(plat, 'normal')
-        plat.clearTint()
+        const meta = PlatformFactory.applyTypeMeta(plat, 'normal')
+        if (typeof meta.color === 'number' && meta.color >= 0) {
+          plat.setTint(meta.color)
+        } else {
+          plat.clearTint()
+        }
       }
     }
   }

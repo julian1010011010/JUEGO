@@ -30,14 +30,14 @@ const gameConfig = {
   // (valores mayores = más arriba, más cerca del tope de la pantalla)
   startYOffset: 90,
   // NUEVO: separación mínima por encima de la plataforma base donde pueden aparecer plataformas
-  minGapAboveBase: 40,
+  minGapAboveBase: 60,
   // NUEVO: evitar crear plataformas alineadas con la base; radio en píxeles
   avoidBaseXRadius: 80,
     weights: {
       normal: 10,
       fragile: 10,
       timed: 10,
-      ice: 10,
+      ice: 90 ,
       dodger: 10,
       invertX: 10, bouncy: 10,
       inversa: 10
