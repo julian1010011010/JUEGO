@@ -1,6 +1,14 @@
 import Phaser from 'phaser'
 
 export default class PlatformFactory {
+  static PLATFORM_TYPES = {
+    fragile:   { name: 'Frágil',      color: 0xffa3a3, typeChance: 0.10 }, // 10%
+    timed:     { name: 'Temporizada', color: 0xfacc15, typeChance: 0.15 }, // 15%
+    dodger:    { name: 'Escurridiza', color: 0xa78bfa, typeChance: 0.15 }, // 15%
+    ice:       { name: 'Hielo',       color: 0x60a5fa, typeChance: 0.15 }, // 15%
+    normal:    { name: 'Normal',      color: null,     typeChance: 0.45 }, // 45%
+    moving:    { name: 'Móvil',       color: 0x34d399, typeChance: 0.15 }, // 15% (solo si se quiere mostrar)
+  }
   /**
    * @param {Phaser.Scene} scene
    */
@@ -25,15 +33,36 @@ export default class PlatformFactory {
     plat.isDodger = !plat.isFragile && !plat.isTimed && r >= 0.25 && r < 0.40
     plat.isIce    = !plat.isFragile && !plat.isTimed && !plat.isDodger && r >= 0.40 && r < 0.55
 
+    // Asignar nombre, color y chance según tipo
     if (plat.isFragile) {
-      plat.setTint(0xffa3a3) // rojo suave
+      const t = PlatformFactory.PLATFORM_TYPES.fragile
+      plat.typeName = t.name
+      plat.typeColor = t.color
+      plat.typeChance = t.typeChance
+      plat.setTint(t.color)
     } else if (plat.isTimed) {
-      plat.setTint(0xfacc15) // amarillo
+      const t = PlatformFactory.PLATFORM_TYPES.timed
+      plat.typeName = t.name
+      plat.typeColor = t.color
+      plat.typeChance = t.typeChance
+      plat.setTint(t.color)
     } else if (plat.isDodger) {
-      plat.setTint(0xa78bfa) // violeta
+      const t = PlatformFactory.PLATFORM_TYPES.dodger
+      plat.typeName = t.name
+      plat.typeColor = t.color
+      plat.typeChance = t.typeChance
+      plat.setTint(t.color)
     } else if (plat.isIce) {
-      plat.setTint(0x60a5fa) // azul hielo
+      const t = PlatformFactory.PLATFORM_TYPES.ice
+      plat.typeName = t.name
+      plat.typeColor = t.color
+      plat.typeChance = t.typeChance
+      plat.setTint(t.color)
     } else {
+      const t = PlatformFactory.PLATFORM_TYPES.normal
+      plat.typeName = t.name
+      plat.typeColor = t.color
+      plat.typeChance = t.typeChance
       plat.clearTint()
     }
 
@@ -55,6 +84,9 @@ export default class PlatformFactory {
           }
         }
       })
+        // Si quieres mostrar el color de móvil, descomenta:
+        // plat.setTint(PlatformFactory.PLATFORM_TYPES.moving.color)
+        // plat.typeName += ' + ' + PlatformFactory.PLATFORM_TYPES.moving.name
     }
 
     return plat

@@ -44,7 +44,7 @@ export default class GameScene extends Phaser.Scene {
     const width = this.scale.width
     const height = this.scale.height
 
-  // ...el fondo de volcán ha sido eliminado...
+  // ...eliminado volcán del fondo...
 
     // Grupo de plataformas y fábrica
     this.platforms = this.physics.add.staticGroup()
@@ -56,7 +56,7 @@ export default class GameScene extends Phaser.Scene {
       this.platformFactory.spawn(Phaser.Math.Between(60, width - 60), startY - i * 70)
     }
     // Plataforma base bajo el jugador
-    this.platformFactory.spawn(width / 2, height - 60)
+    this.basePlatform = this.platformFactory.spawn(width / 2, height - 60)
 
     // Jugador
     this.player = this.physics.add.sprite(width / 2, height - 120, 'player')
@@ -110,14 +110,11 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.stopFollow()
     this._cameraMinY = this.cameras.main.scrollY
 
-  // Lava visual (la muerte se decide con borde inferior de cámara)
+    // Lava visual (la muerte se decide con borde inferior de cámara)
     const lavaY = height - this.lavaHeight
     this.lava = this.add.tileSprite(0, lavaY, width, this.lavaHeight, 'lava')
       .setOrigin(0, 0)
       .setDepth(1)
-
-  // Partículas de lava: fuego y piedritas pixeladas
-  this.createLavaParticles()
 
     // UI DOM
     this.scoreText = document.getElementById('score')
@@ -148,41 +145,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update() {
-    // Animar lava cayendo y humo del volcán
-    if (this.volcanoSprite && this.textures.exists('volcano_bg')) {
-      const g = this.make.graphics({ x: 0, y: 0, add: false });
-      const w = 128, h = 128;
-      // Fondo
-      g.fillStyle(0x181825, 1);
-      g.fillRect(0, 0, w, h);
-      // Volcán base pixel-art
-      g.fillStyle(0x3b2f1e, 1);
-      g.fillRect(32, 96, 64, 32);
-      g.fillStyle(0x6b4226, 1);
-      g.fillRect(40, 64, 48, 32);
-      // Cráter
-      g.fillStyle(0x222222, 1);
-      g.fillRect(56, 60, 16, 8);
-      // Lava en el cráter
-      g.fillStyle(0xf59e0b, 1);
-      g.fillRect(60, 62, 8, 4);
-      // Lava cayendo (animada)
-      this._volcanoLavaY += Phaser.Math.Between(1,3);
-      if (this._volcanoLavaY > 84) this._volcanoLavaY = 68;
-      g.fillStyle(0xf59e0b, 1);
-      g.fillRect(64, this._volcanoLavaY, 4, 16);
-      // Humo (animado)
-      this._volcanoHumoAlpha += Phaser.Math.FloatBetween(-0.01,0.01);
-      this._volcanoHumoAlpha = Phaser.Math.Clamp(this._volcanoHumoAlpha, 0.35, 0.6);
-      g.fillStyle(0xcccccc, this._volcanoHumoAlpha);
-      g.fillRect(60, 52, 8, 8);
-      g.generateTexture('volcano_bg', w, h);
-      this.volcanoSprite.setTexture('volcano_bg');
-    }
+  // ...eliminado efecto volcán en el fondo...
     const width = this.scale.width
     const height = this.scale.height
 
-    const speed = 220     
+    const speed = 220
     const onIce = this.time.now <= this._onIceUntil
 
     // Movimiento horizontal (con efecto hielo)
@@ -229,6 +196,11 @@ export default class GameScene extends Phaser.Scene {
 
       this.player.setVelocityY(-520)
 
+        // Destruir la plataforma base en el primer salto
+        if (this.basePlatform && this.basePlatform.active) {
+          this.basePlatform.destroy();
+          this.basePlatform = null;
+        }
       // Rompe frágil al despegar
       if (this.currentPlatform && this.currentPlatform.isFragile && !this.currentPlatform._broken) {
         this.currentPlatform._broken = true
@@ -309,10 +281,6 @@ export default class GameScene extends Phaser.Scene {
         this.lava.y = Math.max(targetY, currentY - maxStep)
       }
     this.lava.tilePositionY -= 0.4
-
-  // Reposicionar emisores en el borde superior de la lava
-  if (this.lavaFlames) this.lavaFlames.setPosition(0, this.lava.y - 2)
-  if (this.lavaRocks) this.lavaRocks.setPosition(0, this.lava.y - 2)
     }
 
     // Muerte por lava: usa borde inferior visible de la cámara
@@ -503,48 +471,6 @@ export default class GameScene extends Phaser.Scene {
     g.lineStyle(2, 0x8c6239, 0.4)
     g.strokeRoundedRect(10, 18, 12, 18, 6)
     g.generateTexture('thumb_up', hw, hh)
-
-  // Pixel blanco 1x1 (para partículas pixel-art)
-    g.clear()
-    g.fillStyle(0xffffff, 1)
-    g.fillRect(0, 0, 1, 1)
-    g.generateTexture('px', 1, 1)
-  }
-
-  createLavaParticles() {
-    const width = this.scale.width
-
-    // Emisor de fuego (chispas naranjas/amarillas que suben)
-    this.lavaFlames = this.add.particles(0, 0, 'px', {
-      x: { min: 0, max: width },
-      y: 0,
-      quantity: 6,
-      frequency: 60,
-      lifespan: { min: 400, max: 900 },
-      speedY: { min: -120, max: -220 },
-      speedX: { min: -30, max: 30 },
-      scale: { start: 3, end: 1, ease: 'Linear' },
-      tint: [0xf59e0b, 0xfbbf24, 0xf97316, 0xef4444],
-      alpha: { start: 1, end: 0 },
-      blendMode: Phaser.BlendModes.ADD // brillo tipo fuego sin perder el pixel
-    }).setDepth(2)
-
-    // Emisor de piedritas (píxeles oscuros que saltan y caen)
-    this.lavaRocks = this.add.particles(0, 0, 'px', {
-      x: { min: 0, max: width },
-      y: 0,
-      quantity: 3,
-      frequency: 90,
-      lifespan: { min: 700, max: 1400 },
-      speedY: { min: -180, max: -260 },
-      speedX: { min: -80, max: 80 },
-      gravityY: 600,
-      scale: { start: 2, end: 2 },
-      tint: [0x1f2937, 0x4b5563, 0x111827],
-      alpha: { start: 1, end: 0.9 },
-      rotate: 0,
-      emitting: true
-    }).setDepth(2)
   }
 }
  
