@@ -6,7 +6,7 @@ const gameConfig = {
     // NUEVO: velocidad de la partícula en px/s (acepta número o {min,max})
     speed: { min: 200, max: 300 },
     // NUEVO: tamaño visual/collider en píxeles (acepta número o {min,max})
-    size: { min: 3, max: 9 }
+    size: { min: 5, max: 15 }
   },
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)

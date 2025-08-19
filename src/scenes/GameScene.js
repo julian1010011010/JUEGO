@@ -196,7 +196,8 @@ export default class GameScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this._lavaMissileTimer?.remove(false)
       this._lavaMissileTimer = null
-      this.lavaMissiles?.clear(true, true)
+      // Limpieza segura del grupo de misiles
+      this.clearLavaMissiles()
       this.lavaFlames?.destroy()
       this.lavaRocks?.destroy()
     })
@@ -472,7 +473,8 @@ export default class GameScene extends Phaser.Scene {
     this.physics.pause()
     this._lavaMissileTimer?.remove(false)
     this._lavaMissileTimer = null
-    if (this.lavaMissiles) this.lavaMissiles.children.iterate(m => m && m.destroy())
+    // Limpieza segura del grupo de misiles (evita acceder a children indefinido)
+    this.clearLavaMissiles()
 
     this.best = Math.max(this.best, this.score)
     localStorage.setItem('best_score', String(this.best))
@@ -707,6 +709,23 @@ export default class GameScene extends Phaser.Scene {
       return Phaser.Math.Between(min, max)
     }
     return 3
+  }
+
+  // Limpia de forma segura el grupo de misiles evitando acceder a children inexistente
+  clearLavaMissiles() {
+    const group = this.lavaMissiles
+    if (!group) return
+    const items = typeof group.getChildren === 'function'
+      ? group.getChildren()
+      : (group.children?.entries || [])
+    if (Array.isArray(items)) {
+      for (const m of items) {
+        if (m && m.destroy) m.destroy()
+      }
+    } else if (group.children?.iterate) {
+      group.children.iterate(m => m && m.destroy())
+    }
+    this.lavaMissiles = null
   }
 }
 
