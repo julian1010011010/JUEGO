@@ -2,7 +2,9 @@ const gameConfig = {
   // Frecuencia de misiles de lava (en milisegundos)
   lavaMissiles: {
     // Puedes usar min/max para definir un rango aleatorio
-    intervalMs: { min: 220, max: 420 }
+    intervalMs: { min: 220, max: 420 },
+    // NUEVO: velocidad de la partícula en px/s (acepta número o {min,max})
+    speed: { min: 30, max: 50 }
   },
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)

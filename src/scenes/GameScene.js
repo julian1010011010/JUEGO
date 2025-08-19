@@ -616,7 +616,8 @@ export default class GameScene extends Phaser.Scene {
     const width = this.scale.width
     const x = Phaser.Math.Between(6, width - 6)
     const y = this.lava.y - 2
-    const missile = new LavaParticle(this, x, y, { delay: 2000, speed: 420 })
+    const speed = this.getLavaMissileSpeed()
+    const missile = new LavaParticle(this, x, y, { delay: 2000, speed })
     this.lavaMissiles.add(missile)
     return missile
   }
@@ -642,6 +643,18 @@ export default class GameScene extends Phaser.Scene {
     const min = Math.max(100, cfg.min ?? cfg[0] ?? 3000)
     const max = Math.max(min, cfg.max ?? cfg[1] ?? min)
     return Phaser.Math.Between(min, max)
+  }
+
+  // NUEVO: lee la velocidad desde config (número fijo o rango)
+  getLavaMissileSpeed() {
+    const cfg = gameConfig?.lavaMissiles?.speed
+    if (typeof cfg === 'number') return Math.max(10, cfg)
+    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+      const min = Math.max(10, cfg.min ?? 420)
+      const max = Math.max(min, cfg.max ?? min)
+      return Phaser.Math.Between(min, max)
+    }
+    return 420
   }
 }
 
