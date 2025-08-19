@@ -7,6 +7,7 @@ export default class PlatformFactory {
     dodger: { name: 'Escurridiza', color: 0x651fff, typeChance: 0.15 }, // lavioleta intenso
     ice: { name: 'Hielo', color: 0xff69b4, typeChance: 0.15 }, // rosa
     normal: { name: 'Normal', color: null, typeChance: 0.45 }, // sin color
+    inversa: { name: 'Inversa', color: 0x000000, typeChance: 0.10 }, // negro
     // Eliminada la plataforma 'moving' por no tener poder
   }
   /**
@@ -31,6 +32,7 @@ export default class PlatformFactory {
       plat.isTimed = forcedType === 'timed'
       plat.isDodger = forcedType === 'dodger'
       plat.isIce = forcedType === 'ice'
+      plat.isInversa = forcedType === 'inversa'
     } else {
       // Asignación de tipos (mutuamente excluyentes salvo móviles):
       // frágil (10%), temporizada (15%), escurridiza/dodger (15%), hielo (15%), normal en otro caso.
@@ -39,6 +41,7 @@ export default class PlatformFactory {
       plat.isTimed = !plat.isFragile && r >= 0.10 && r < 0.25
       plat.isDodger = !plat.isFragile && !plat.isTimed && r >= 0.25 && r < 0.40
       plat.isIce = !plat.isFragile && !plat.isTimed && !plat.isDodger && r >= 0.40 && r < 0.55
+      plat.isInversa = !plat.isFragile && !plat.isTimed && !plat.isDodger && !plat.isIce && r >= 0.55 && r < 0.65
     }
 
     // Asignar nombre, color y chance según tipo
@@ -136,6 +139,47 @@ export default class PlatformFactory {
       plat.typeChance = t.typeChance
       // Forzar rosa
       plat.setTint(0xff69b4)
+    } else if (plat.isInversa) {
+      const t = PlatformFactory.PLATFORM_TYPES.inversa
+      plat.typeName = t.name
+      plat.typeColor = t.color
+      plat.typeChance = t.typeChance
+      plat.setTint(0x000000)
+      // Movimiento inverso SOLO cuando el jugador se mueve: sigue la dirección opuesta a la velocidad X
+      plat._inversaTween = scene.time.addEvent({
+        delay: 16,
+        loop: true,
+        callback: () => {
+          if (!scene.player || !plat.active) return
+          const speed = 2
+          const playerBody = scene.player.body
+          if (playerBody && Math.abs(playerBody.velocity.x) > 0.1) {
+            plat.x -= Math.sign(playerBody.velocity.x) * speed
+            plat.refreshBody()
+          }
+        }
+      })
+      plat.once('destroy', () => plat._inversaTween?.remove(false))
+
+      // NUEVO: pintar al personaje de negro cuando está encima
+      const paintCheck = scene.time.addEvent({
+        delay: 80,
+        loop: true,
+        callback: () => {
+          if (!scene.player || !plat.active) return
+          // Verifica overlap entre player y plataforma inversa
+          if (scene.physics.world.overlap(scene.player, plat)) {
+            scene.player.setTint?.(0x000000)
+          } else {
+            scene.player.clearTint?.()
+          }
+        }
+      })
+      plat.once('destroy', () => {
+        paintCheck?.remove(false)
+        // Limpia el tint si la plataforma se destruye y el player sigue pintado
+        scene.player.clearTint?.()
+      })
     } else {
       const t = PlatformFactory.PLATFORM_TYPES.normal
       plat.typeName = t.name

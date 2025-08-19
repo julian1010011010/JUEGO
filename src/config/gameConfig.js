@@ -2,7 +2,7 @@ const gameConfig = {
   // Frecuencia de misiles de lava (en milisegundos)
   lavaMissiles: {
     // NUEVO: tasa de generación por minuto (si se define, ignora intervalSeconds/intervalMs)
-    ratePerMinute: 60,
+    ratePerMinute: 0, // 0 para desactivar
 
     // Puedes seguir usando intervalSeconds como respaldo si no usas ratePerMinute
     // intervalSeconds: 1.5,
@@ -23,8 +23,9 @@ const gameConfig = {
       normal: 55,
       fragile: 12,
       timed: 10,
-      ice:55,
-      dodger: 13
+      ice: 10,
+      dodger: 13,
+      inversa: 60
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     }
   },
