@@ -159,7 +159,7 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
     maskG = s.add.graphics()
     const w = s.scale.width
     // Rect que cubre TODO lo por encima de la lava (visible). Lo de abajo queda oculto.
-    maskG.fillStyle(0xffffff, 1)
+    maskG.fillStyle(0x000000, 0) // <-- transparente, no blanco
     maskG.fillRect(0, 0, w, Math.max(0, lineY))
     mask = new Phaser.Display.Masks.GeometryMask(s, maskG)
     player.setMask(mask)
