@@ -1,14 +1,17 @@
 const gameConfig = {
   // Frecuencia de misiles de lava (en milisegundos)
   lavaMissiles: {
-    // Puedes usar min/max para definir un rango aleatorio
-    intervalMs: { min: 220, max: 420 },
-    // NUEVO: velocidad de la partícula en px/s (acepta número o {min,max})
+    // Puedes usar un valor fijo en segundos:
+    intervalSeconds: 1.5,
+    // También puedes dejar intervalMs como número fijo en ms o como rango {min,max}
+    // intervalMs: 1500,
+
+    // Velocidad de la partícula en px/s (acepta número o {min,max})
     speed: { min: 100, max: 200 },
-    // NUEVO: tamaño visual/collider en píxeles (acepta número o {min,max})
-    size: { min: 5, max: 15 },
-    // NUEVO: cantidad de partículas por tick (acepta número o {min,max})
-    count: { min: 1, max: 1 }
+    // Tamaño visual/collider en píxeles (rango 4–10)
+    size: { min: 4, max: 10 },
+    // Cantidad de partículas por tick (número fijo)
+    count: 1
   },
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)
@@ -26,7 +29,13 @@ const gameConfig = {
   // NUEVO: margen adicional antes de morir por tocar la lava (en píxeles)
   lava: {
     killMargin: 6
+  },
+
+  // NUEVO: flags de depuración (posiciones y AABBs en colisiones)
+  debug: {
+    collisions: true // ponlo en false para desactivar logs/dibujo
   }
 }
 
 export default gameConfig
+ 

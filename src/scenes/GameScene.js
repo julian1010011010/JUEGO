@@ -179,6 +179,12 @@ export default class GameScene extends Phaser.Scene {
         if (!pb || !mb) return
         const overlapX = Math.max(pb.left, mb.left) < Math.min(pb.right, mb.right)
         const overlapY = Math.max(pb.top, mb.top) < Math.min(pb.bottom, mb.bottom)
+
+        if (gameConfig?.debug?.collisions) {
+          this.debugLogMissileOverlap(pb, mb, overlapX, overlapY, missile)
+          this.debugDrawMissileOverlap(pb, mb)
+        }
+
         if (overlapX && overlapY) this.gameOver('lava')
       },
       // processCallback: solo evaluar misiles activos y no en espera
@@ -407,7 +413,14 @@ export default class GameScene extends Phaser.Scene {
       const visibleTop = this.lava ? this.lava.y : computedTop
       const killTop = Math.max(visibleTop, computedTop) + this.lavaKillMargin
       const playerBottom = this.player.body.bottom
-      if (playerBottom >= killTop) this.gameOver('lava')
+
+      if (playerBottom >= killTop) {
+        if (gameConfig?.debug?.collisions) {
+          this.debugLogLavaKill(playerBottom, visibleTop, computedTop, killTop)
+          this.debugDrawKillLine(killTop)
+        }
+        this.gameOver('lava')
+      }
     }
 
     // Cámara solo-subida
@@ -465,14 +478,79 @@ export default class GameScene extends Phaser.Scene {
       callback: () => {
         if (this._ended || !this.canLose) return
         const n = this.getLavaMissileCount?.() ?? 1
-        for (let i = 0; i < n; i++) {
-          this.spawnLavaParticle()
-        }
-        if (this._lavaMissileTimer) {
+        for (let i = 0; i < n; i++) this.spawnLavaParticle()
+        // Si el delay es fijo, no reasignamos; si es rango, re-evaluamos
+        if (this._lavaMissileTimer && !this.isFixedLavaMissileDelay?.()) {
           this._lavaMissileTimer.delay = this.getNextLavaMissileDelay?.() ?? 3000
         }
       }
     })
+  }
+
+  // Lee el rango o valor fijo para el spawn de misiles (ms)
+  getNextLavaMissileDelay() {
+    const lm = gameConfig?.lavaMissiles || {}
+    // 1) Fijo en segundos
+    if (typeof lm.intervalSeconds === 'number' && isFinite(lm.intervalSeconds)) {
+      return Math.max(0, lm.intervalSeconds) * 1000
+    }
+    // 2) Fijo en ms
+    if (typeof lm.intervalMs === 'number' && isFinite(lm.intervalMs)) {
+      return Math.max(0, lm.intervalMs)
+    }
+    // 3) Rango {min,max} en ms
+    const cfg = lm.intervalMs
+    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+      const min = Math.max(50, cfg.min ?? 3000)
+      const max = Math.max(min, cfg.max ?? min)
+      return Phaser.Math.Between(min, max)
+    }
+    // 4) Default
+    return 3000
+  }
+
+  // Indica si el delay es fijo (no aleatorio)
+  isFixedLavaMissileDelay() {
+    const lm = gameConfig?.lavaMissiles || {}
+    return (typeof lm.intervalSeconds === 'number' && isFinite(lm.intervalSeconds)) ||
+           (typeof lm.intervalMs === 'number' && isFinite(lm.intervalMs))
+  }
+
+  // NUEVO: lee la velocidad desde config (número fijo o rango)
+  getLavaMissileSpeed() {
+    const cfg = gameConfig?.lavaMissiles?.speed
+    if (typeof cfg === 'number') return Math.max(10, cfg)
+    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+      const min = Math.max(10, cfg.min ?? 420)
+      const max = Math.max(min, cfg.max ?? min)
+      return Phaser.Math.Between(min, max)
+    }
+    return 420
+  }
+
+  // NUEVO: lee el tamaño desde config (clamp 4–10)
+  getLavaMissileSize() {
+    const clampMin = 4, clampMax = 10
+    const cfg = gameConfig?.lavaMissiles?.size
+    if (typeof cfg === 'number') return Phaser.Math.Clamp(Math.round(cfg), clampMin, clampMax)
+    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+      const min = Phaser.Math.Clamp(Math.round(cfg.min ?? clampMin), clampMin, clampMax)
+      const max = Phaser.Math.Clamp(Math.round(cfg.max ?? min), min, clampMax)
+      return Phaser.Math.Between(min, max)
+    }
+    return clampMin
+  }
+
+  // NUEVO: lee la cantidad por tick desde config (número fijo o rango)
+  getLavaMissileCount() {
+    const cfg = gameConfig?.lavaMissiles?.count
+    if (typeof cfg === 'number') return Math.max(0, cfg | 0)
+    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+      const min = Math.max(0, (cfg.min ?? 1) | 0)
+      const max = Math.max(min, (cfg.max ?? min) | 0)
+      return Phaser.Math.Between(min, max)
+    }
+    return 1
   }
 
   // Garantiza que exista la textura 'px' antes de usarla en emisores/sprites
@@ -487,7 +565,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   gameOver(cause) {
-    if (this._ended) return
+     if (this._ended) return
     // Parar spawner y limpiar misiles restantes
     this._ended = true
     this.physics.pause()
@@ -698,37 +776,67 @@ export default class GameScene extends Phaser.Scene {
     return 'normal'
   }
 
-  // Lee el rango de intervalo desde config para el spawn de misiles
-  getNextLavaMissileDelay() {
-    const cfg = gameConfig.lavaMissiles && gameConfig.lavaMissiles.intervalMs
-    if (!cfg) return 3000
-    const min = Math.max(100, cfg.min ?? cfg[0] ?? 3000)
-    const max = Math.max(min, cfg.max ?? cfg[1] ?? min)
-    return Phaser.Math.Between(min, max)
+  // NUEVO: logs detallados del solapamiento misil ↔ jugador
+  debugLogMissileOverlap(pb, mb, overlapX, overlapY, missile) {
+    try {
+      console.warn('[DEBUG] Misil↔Jugador overlap',
+        {
+          time: Math.floor(this.time.now),
+          missileId: missile?.id ?? null,
+          player: { x: this.player.x, y: this.player.y, left: pb.left, right: pb.right, top: pb.top, bottom: pb.bottom, w: pb.width, h: pb.height },
+          missile: { x: missile.x, y: missile.y, left: mb.left, right: mb.right, top: mb.top, bottom: mb.bottom, w: mb.width, h: mb.height, waiting: missile._waiting },
+          overlapX, overlapY
+        }
+      )
+    } catch {}
   }
 
-  // NUEVO: lee la velocidad desde config (número fijo o rango)
-  getLavaMissileSpeed() {
-    const cfg = gameConfig?.lavaMissiles?.speed
-    if (typeof cfg === 'number') return Math.max(10, cfg)
-    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
-      const min = Math.max(10, cfg.min ?? 420)
-      const max = Math.max(min, cfg.max ?? min)
-      return Phaser.Math.Between(min, max)
-    }
-    return 420
+  // NUEVO: dibuja AABBs de jugador (azul) y misil (rojo) durante ~1s
+  debugDrawMissileOverlap(pb, mb) {
+    try {
+      if (!this._debugG) {
+        this._debugG = this.add.graphics().setDepth(10000)
+      }
+      const g = this._debugG
+      g.clear()
+      // jugador
+      g.lineStyle(2, 0x3b82f6, 1)
+      g.strokeRect(pb.left, pb.top, pb.width, pb.height)
+      // misil
+      g.lineStyle(2, 0xef4444, 1)
+      g.strokeRect(mb.left, mb.top, mb.width, mb.height)
+      this.time.delayedCall(1000, () => g.clear())
+    } catch {}
   }
 
-  // NUEVO: lee el tamaño desde config (número fijo o rango)
-  getLavaMissileSize() {
-    const cfg = gameConfig?.lavaMissiles?.size
-    if (typeof cfg === 'number') return Math.max(1, cfg)
-    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
-      const min = Math.max(1, cfg.min ?? 3)
-      const max = Math.max(min, cfg.max ?? min)
-      return Phaser.Math.Between(min, max)
-    }
-    return 3
+  // NUEVO: logs de muerte por lava con posiciones relevantes
+  debugLogLavaKill(playerBottom, visibleTop, computedTop, killTop) {
+    try {
+      console.warn('[DEBUG] Lava kill check', {
+        time: Math.floor(this.time.now),
+        playerBottom,
+        visibleTop,
+        computedTop,
+        killTop,
+        margin: this.lavaKillMargin
+      })
+    } catch {}
+  }
+
+  // NUEVO: dibuja la línea de muerte (killTop) en amarillo
+  debugDrawKillLine(y) {
+    try {
+      if (!this._debugG) {
+        this._debugG = this.add.graphics().setDepth(10000)
+      }
+      const g = this._debugG
+      g.lineStyle(2, 0xfacc15, 1)
+      g.beginPath()
+      g.moveTo(0, y)
+      g.lineTo(this.scale.width, y)
+      g.strokePath()
+      this.time.delayedCall(1000, () => g.clear())
+    } catch {}
   }
 
   // NUEVO: lee la cantidad por tick desde config (número fijo o rango)
