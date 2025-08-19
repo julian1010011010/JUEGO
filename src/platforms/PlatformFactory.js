@@ -16,6 +16,8 @@ export default class PlatformFactory {
     ice: { name: 'Hielo', color: 0xff69b4, typeChance: 0.15 },
     // NUEVO: Elástica
     bouncy: { name: 'Elástica', color: 0x00e676, typeChance: 0.12 },
+    // NUEVO: Inversa X (invierte controles horizontales mientras estás encima)
+    invertX: { name: 'Inversa X', color: 0x00bcd4, typeChance: 0.10 },
     normal: { name: 'Normal', color: null, typeChance: 0.45 },
     inversa: { name: 'Inversa', color: 0x000000, typeChance: 0.10 }, // negro
     // Eliminada la plataforma 'moving' por no tener poder
@@ -64,6 +66,8 @@ export default class PlatformFactory {
     plat.isInversa = typeKey === 'inversa'
     // NUEVO:
     plat.isBouncy = typeKey === 'bouncy'
+    // NUEVO:
+    plat.isInvertX = typeKey === 'invertX'
   }
 
   /**
@@ -163,6 +167,11 @@ export default class PlatformFactory {
       // NUEVO: Elástica (rebota al jugador y es semitransparente)
       case 'bouncy': {
         this.applyBouncyBehavior(scene, plat)
+        break
+      }
+      // NUEVO: Inversa X (invierte controles horizontales mientras estás encima)
+      case 'invertX': {
+        this.applyInvertXBehavior(scene, plat)
         break
       }
       case 'inversa': {
@@ -321,6 +330,65 @@ export default class PlatformFactory {
   }
 
   /**
+   * NUEVO: Aplica comportamiento para plataforma 'invertX' (invierte controles en el eje X).
+   * - Zona superior estrecha para detectar que el jugador está ENCIMA.
+   * - Mientras haya solape con la zona, derecha=izquierda e izquierda=derecha.
+   * - Tinte al jugador para feedback.
+   * - Limpieza de eventos/zona en destroy.
+   */
+  applyInvertXBehavior(scene, plat) {
+    PlatformFactory.applyTypeMeta(plat, 'invertX')
+    plat.setTint(PlatformFactory.PLATFORM_TYPES.invertX.color)
+
+    PlatformFactory.ensurePxTexture(scene)
+    const invZone = PlatformFactory.createStayZone(scene, plat, 8)
+    plat.invertZone = invZone
+
+    // Tinte al jugador mientras solape con la plataforma (feedback visual)
+    const mgr = scene.playerColorManager || (scene.playerColorManager = new PlayerColorManager(scene, scene.player ?? null))
+    if (!mgr.player && scene.player) mgr.setPlayer(scene.player)
+    mgr.applyWhileOverlap(plat, PlatformFactory.PLATFORM_TYPES.invertX.color, 80)
+    plat.once('destroy', () => mgr.stopFor(plat, true))
+
+    // Teclas a observar (flechas y A/D). Se crean una sola vez por plataforma.
+    const keys = scene.input?.keyboard?.addKeys
+      ? scene.input.keyboard.addKeys({
+          LEFT: Phaser.Input.Keyboard.KeyCodes.LEFT,
+          RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+          A: Phaser.Input.Keyboard.KeyCodes.A,
+          D: Phaser.Input.Keyboard.KeyCodes.D
+        })
+      : null
+
+    // REEMPLAZO: aplicar inversión al final del frame para evitar ping‑pong con el update del jugador
+    plat._invertXHandler = () => {
+      const player = scene.player
+      if (!plat.active || !player || !invZone.body) return
+      if (!scene.physics.world.overlap(player, invZone)) return
+
+      const body = player.body
+      if (!body) return
+
+      const leftDown = !!(keys?.LEFT?.isDown || keys?.A?.isDown)
+      const rightDown = !!(keys?.RIGHT?.isDown || keys?.D?.isDown)
+      // Solo cuando hay una dirección activa
+      if (leftDown === rightDown) return
+
+      const dir = rightDown ? 1 : -1
+      const base = 240
+      player.setVelocityX?.(-dir * base)
+    }
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, plat._invertXHandler)
+
+    // Limpieza (elimina también cualquier bucle anterior si lo hubiera)
+    plat.once('destroy', () => {
+      scene.events.off(Phaser.Scenes.Events.POST_UPDATE, plat._invertXHandler)
+      invZone.destroy()
+      // ...existing code (mgr.stopFor si aplica)...
+    })
+  }
+
+  /**
    * Crea una plataforma en (x,y) con posibles rasgos especiales.
    * Devuelve el GameObject de plataforma (Static Physics Sprite).
    * @param {number} x
@@ -340,8 +408,8 @@ export default class PlatformFactory {
     PlatformFactory.setTypeFlags(plat, typeKey)
     this.applyTypeBehavior(scene, plat, typeKey)
 
-    // 15% móviles si no son dodger, hielo ni elástica (para evitar combinaciones complicadas)
-    plat.isMoving = !plat.isDodger && !plat.isIce && !plat.isBouncy && Math.random() < 0.15
+    // 15% móviles si no son dodger, hielo, elástica ni inversa X
+    plat.isMoving = !plat.isDodger && !plat.isIce && !plat.isBouncy && !plat.isInvertX && Math.random() < 0.15
     if (plat.isMoving) {
       const amplitude = Phaser.Math.Between(30, 90)
       const baseX = x
