@@ -2,11 +2,11 @@ import Phaser from 'phaser'
 
 export default class PlatformFactory {
   static PLATFORM_TYPES = {
-    fragile:   { name: 'Frágil',      color: 0xff1744, typeChance: 0.10 }, // rojo vivo
-    timed:     { name: 'Temporizada', color: 0xffea00, typeChance: 0.15 }, // amarillo neón
-    dodger:    { name: 'Escurridiza', color: 0x651fff, typeChance: 0.15 }, // lavioleta intenso
-    ice:       { name: 'Hielo',       color: 0x00e5ff, typeChance: 0.15 }, // celeste brillante
-    normal:    { name: 'Normal',      color: null,     typeChance: 0.45 }, // sin color
+    fragile: { name: 'Frágil', color: 0xff1744, typeChance: 0.10 }, // rojo vivo
+    timed: { name: 'Temporizada', color: 0xffea00, typeChance: 0.15 }, // amarillo neón
+    dodger: { name: 'Escurridiza', color: 0x651fff, typeChance: 0.15 }, // lavioleta intenso
+    ice: { name: 'Hielo', color: 0xff69b4, typeChance: 0.15 }, // rosa
+    normal: { name: 'Normal', color: null, typeChance: 0.45 }, // sin color
     // Eliminada la plataforma 'moving' por no tener poder
   }
   /**
@@ -38,7 +38,7 @@ export default class PlatformFactory {
       plat.isFragile = r < 0.10
       plat.isTimed = !plat.isFragile && r >= 0.10 && r < 0.25
       plat.isDodger = !plat.isFragile && !plat.isTimed && r >= 0.25 && r < 0.40
-      plat.isIce    = !plat.isFragile && !plat.isTimed && !plat.isDodger && r >= 0.40 && r < 0.55
+      plat.isIce = !plat.isFragile && !plat.isTimed && !plat.isDodger && r >= 0.40 && r < 0.55
     }
 
     // Asignar nombre, color y chance según tipo
@@ -134,7 +134,8 @@ export default class PlatformFactory {
       plat.typeName = t.name
       plat.typeColor = t.color
       plat.typeChance = t.typeChance
-      plat.setTint(t.color)
+      // Forzar rosa
+      plat.setTint(0xff69b4)
     } else {
       const t = PlatformFactory.PLATFORM_TYPES.normal
       plat.typeName = t.name
@@ -167,9 +168,9 @@ export default class PlatformFactory {
           }
         }
       })
-        // Si quieres mostrar el color de móvil, descomenta:
-        // plat.setTint(PlatformFactory.PLATFORM_TYPES.moving.color)
-        // plat.typeName += ' + ' + PlatformFactory.PLATFORM_TYPES.moving.name
+      // Si quieres mostrar el color de móvil, descomenta:
+      // plat.setTint(PlatformFactory.PLATFORM_TYPES.moving.color)
+      // plat.typeName += ' + ' + PlatformFactory.PLATFORM_TYPES.moving.name
     }
 
     return plat

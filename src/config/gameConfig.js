@@ -23,7 +23,7 @@ const gameConfig = {
       normal: 55,
       fragile: 12,
       timed: 10,
-      ice: 10,
+      ice:55,
       dodger: 13
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     }
