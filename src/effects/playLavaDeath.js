@@ -227,21 +227,31 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
 
   // 4) Espera breve y mostrar brazo con pulgar
   const spawnThumb = () => {
-    // Mostrar únicamente el sprite terminator.png como pulgar
-    const thumb = scene.add.sprite(player.x, lineY + 2, 'terminator').setOrigin(0.5, 1);
+    // Mostrar el sprite terminator.png como pulgar
+    const thumb = scene.add.sprite(player.x, lineY, 'terminator').setOrigin(0.5, 1);
     // Escalar al ancho del jugador
     const pw = player.displayWidth || player.width || 28;
     const ratio = pw / (thumb.width || pw);
     thumb.setScale(ratio);
     thumb.setDepth((lava?.depth ?? 10) + 1); // por encima de la lava
-    // Zoom de cámara sutil
-    try { s.cameras.main.zoomTo?.(o.cameraZoom, 300); } catch {}
 
-    const riseY = lineY - o.thumbRise;
+    // Centrar la cámara en la posición de muerte del personaje, sin mover fuera de los límites
+    try {
+      const cam = s.cameras.main;
+      // Limita el paneo para que no se salga del mundo
+      const worldW = cam?.scene?.scale?.width || cam.width;
+      const worldH = cam?.scene?.scale?.height || cam.height;
+      let targetX = Phaser.Math.Clamp(player.x, cam.width / 2, worldW - cam.width / 2);
+      let targetY = Phaser.Math.Clamp(yAtSurface, cam.height / 2, worldH - cam.height / 2);
+      cam.pan(targetX, targetY, 500, 'Sine.easeInOut', false);
+    } catch {}
+
+    // Animación: aparecer lentamente desde debajo de la lava
+    thumb.y = lineY + 40; // inicia oculto bajo la lava
     const chain = [
-      { targets: thumb, y: riseY, duration: 320, ease: 'Sine.out' },
-      { targets: thumb, y: riseY - 3, duration: 180, ease: 'Sine.inOut', yoyo: true, repeat: Math.max(0, Math.floor(o.thumbDuration / 360) - 1) },
-      { targets: thumb, y: lineY + 8, duration: 380, ease: 'Sine.in' }
+      { targets: thumb, y: lineY, duration: 700, ease: 'Sine.out' }, // sube despacio hasta la superficie
+      { targets: thumb, duration: o.thumbDuration }, // se mantiene visible
+      { targets: thumb, alpha: 0, duration: 400, ease: 'Sine.in' } // se desvanece
     ];
 
     if (tl) {
