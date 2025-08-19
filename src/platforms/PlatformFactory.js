@@ -31,6 +31,32 @@ export default class PlatformFactory {
     } else if (!this.scene.playerColorManager.player && this.scene.player) {
       this.scene.playerColorManager.setPlayer(this.scene.player)
     }
+
+    // NUEVO: cleanup de ciclo de vida (una sola vez por escena)
+    PlatformFactory._installSceneCleanup(this.scene)
+  }
+
+  // NUEVO: instala limpieza al reiniciar/destruir la escena para evitar fugas de estado
+  static _installSceneCleanup(scene) {
+    if (scene._pfCleanupInstalled) return
+    scene._pfCleanupInstalled = true
+
+    const cleanup = () => {
+      // Limpia estado global de invertX
+      const G = scene._invertXGlobal
+      if (G) {
+        if (G.handler) scene.events.off(Phaser.Scenes.Events.POST_UPDATE, G.handler)
+        if (G.deactivateHandler) scene.events.off(Phaser.Scenes.Events.POST_UPDATE, G.deactivateHandler)
+        G.footZone?.destroy()
+        scene._invertXGlobal = null
+      }
+      // Limpia gestor de color del jugador
+      scene.playerColorManager?.destroy?.()
+      scene.playerColorManager = null
+    }
+
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup)
+    scene.events.once(Phaser.Scenes.Events.DESTROY, cleanup)
   }
 
   // NUEVO: utilidades y lógica común -----------------------------------------
@@ -352,7 +378,6 @@ export default class PlatformFactory {
     // Estado global del efecto inverso (una sola vez por escena)
     const G = (scene._invertXGlobal = scene._invertXGlobal || {
       active: false, owner: null, keys: null, handler: null,
-      // NUEVO: sensor y handler de desactivación por “suelo”
       footZone: null, deactivateHandler: null
     })
 
@@ -396,13 +421,17 @@ export default class PlatformFactory {
 
     // NUEVO: desactivación fiable usando un sensor bajo los pies
     if (!G.deactivateHandler) {
-      // Crear footZone una sola vez
-      PlatformFactory.ensurePxTexture(scene)
-      G.footZone = scene.physics.add.image(0, 0, 'px')
-        .setVisible(false)
-        .setAlpha(0)
-        .setImmovable(true)
-      G.footZone.body.allowGravity = false
+      // Asegura que el sensor exista
+      const ensureFootZone = () => {
+        if (G.footZone && G.footZone.body) return
+        PlatformFactory.ensurePxTexture(scene)
+        G.footZone = scene.physics.add.image(0, 0, 'px')
+          .setVisible(false)
+          .setAlpha(0)
+          .setImmovable(true)
+        if (G.footZone.body) G.footZone.body.allowGravity = false
+      }
+      ensureFootZone()
 
       G.deactivateHandler = () => {
         if (!G.active || !scene.player) return
@@ -410,14 +439,30 @@ export default class PlatformFactory {
         const pb = player.body
         if (!pb) return
 
-        // Solo comprobar cuando está en el suelo
+        // Revalidar sensor si algo lo limpió
+        ensureFootZone()
+        if (!G.footZone || !G.footZone.body) return
+
+        // Solo cuando el jugador está apoyado
         if (!(pb.blocked?.down || pb.touching?.down || player.body.onFloor?.())) return
 
-        // Posicionar el sensor bajo los pies y dimensionarlo al ancho del jugador
+        // Posicionar y dimensionar el sensor bajo los pies
         const fh = 4
-        G.footZone.setDisplaySize(player.displayWidth, fh)
-        G.footZone.body.setSize(G.footZone.displayWidth, fh, true)
-        G.footZone.body.reset(pb.center.x, pb.bottom + fh / 2 + 1)
+        // Ajuste de display y body (con fallback seguro)
+        G.footZone.setDisplaySize?.(player.displayWidth, fh)
+        if (G.footZone.body?.setSize) {
+          G.footZone.body.setSize(G.footZone.displayWidth, fh, true)
+        } else {
+          G.footZone.setSize?.(player.displayWidth, fh)
+        }
+
+        const cx = pb.center?.x ?? player.x
+        const bottom = pb.bottom ?? (player.y + player.displayHeight / 2)
+        if (G.footZone.body?.reset) {
+          G.footZone.body.reset(cx, bottom + fh / 2 + 1)
+        } else {
+          G.footZone.setPosition?.(cx, bottom + fh / 2 + 1)
+        }
 
         // ¿Toca una plataforma distinta al owner?
         let touchedDifferent = false
@@ -436,11 +481,11 @@ export default class PlatformFactory {
       scene.events.on(Phaser.Scenes.Events.POST_UPDATE, G.deactivateHandler)
     }
 
-    // Limpieza del activador y zona al destruir esta plataforma (el handler global se conserva)
+    // Limpieza del activador y zona al destruir esta plataforma
     plat.once('destroy', () => {
       scene.events.off(Phaser.Scenes.Events.POST_UPDATE, plat._invertXActivator)
       plat.invertZone?.destroy()
-      // ...existing code...
+      // El handler y el footZone global permanecen para otras plataformas invertX
     })
   }
 
