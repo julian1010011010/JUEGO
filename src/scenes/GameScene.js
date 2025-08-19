@@ -22,7 +22,8 @@ export default class GameScene extends Phaser.Scene {
     this.lavaHeight = 56
     this.lavaRiseSpeed = 120
     this.lavaOffset = 0
-    this.lavaKillMargin = 3
+    // this.lavaKillMargin = 3
+    this.lavaKillMargin = gameConfig?.lava?.killMargin ?? 6
 
     // Plataformas escurridizas (que se mueven al intentar alcanzarlas)
     this.dodgerDx = 80
@@ -167,9 +168,23 @@ export default class GameScene extends Phaser.Scene {
 
     // Grupo de misiles y overlap (siempre)
     this.lavaMissiles = this.physics.add.group()
-    this.physics.add.overlap(this.player, this.lavaMissiles, () => {
-      if (!this._ended && this.canLose) this.gameOver('lava')
-    })
+    this.physics.add.overlap(
+      this.player,
+      this.lavaMissiles,
+      // Solo mata si hay intersección real (AABB en X y Y) y el misil ya fue lanzado
+      (_player, missile) => {
+        if (this._ended || !this.canLose || !missile || !missile.active || missile._waiting) return
+        const pb = this.player.body
+        const mb = missile.body
+        if (!pb || !mb) return
+        const overlapX = Math.max(pb.left, mb.left) < Math.min(pb.right, mb.right)
+        const overlapY = Math.max(pb.top, mb.top) < Math.min(pb.bottom, mb.bottom)
+        if (overlapX && overlapY) this.gameOver('lava')
+      },
+      // processCallback: solo evaluar misiles activos y no en espera
+      (_player, missile) => !!(missile && missile.active && !missile._waiting),
+      this
+    )
 
     // UI DOM
     this.scoreText = document.getElementById('score')
@@ -379,18 +394,20 @@ export default class GameScene extends Phaser.Scene {
         const maxStep = (this.lavaRiseSpeed * this.game.loop.delta) / 1000
         this.lava.y = Math.max(targetY, currentY - maxStep)
       }
-    this.lava.tilePositionY -= 0.4
+      this.lava.tilePositionY -= 0.4
 
   // Reposicionar emisores en el borde superior de la lava
   if (this.lavaFlames) this.lavaFlames.setPosition(0, this.lava.y - 2)
   if (this.lavaRocks) this.lavaRocks.setPosition(0, this.lava.y - 2)
     }
 
-    // Muerte por lava: usa borde inferior visible de la cámara
+    // Muerte por lava: usar la lava visible (con margen) para evitar muertes tempranas
     if (!this._ended && this.canLose && this.player && this.player.body) {
-  const worldLavaTop = this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset
-  const playerBottom = this.player.body.bottom
-  if (playerBottom >= worldLavaTop) this.gameOver('lava')
+      const computedTop = this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset
+      const visibleTop = this.lava ? this.lava.y : computedTop
+      const killTop = Math.max(visibleTop, computedTop) + this.lavaKillMargin
+      const playerBottom = this.player.body.bottom
+      if (playerBottom >= killTop) this.gameOver('lava')
     }
 
     // Cámara solo-subida
@@ -447,7 +464,10 @@ export default class GameScene extends Phaser.Scene {
       loop: true,
       callback: () => {
         if (this._ended || !this.canLose) return
-        this.spawnLavaParticle()
+        const n = this.getLavaMissileCount?.() ?? 1
+        for (let i = 0; i < n; i++) {
+          this.spawnLavaParticle()
+        }
         if (this._lavaMissileTimer) {
           this._lavaMissileTimer.delay = this.getNextLavaMissileDelay?.() ?? 3000
         }
@@ -709,6 +729,18 @@ export default class GameScene extends Phaser.Scene {
       return Phaser.Math.Between(min, max)
     }
     return 3
+  }
+
+  // NUEVO: lee la cantidad por tick desde config (número fijo o rango)
+  getLavaMissileCount() {
+    const cfg = gameConfig?.lavaMissiles?.count
+    if (typeof cfg === 'number') return Math.max(0, cfg | 0)
+    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+      const min = Math.max(0, (cfg.min ?? 1) | 0)
+      const max = Math.max(min, (cfg.max ?? min) | 0)
+      return Phaser.Math.Between(min, max)
+    }
+    return 1
   }
 
   // Limpia de forma segura el grupo de misiles evitando acceder a children inexistente

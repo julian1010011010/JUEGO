@@ -6,7 +6,7 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this)
     scene.physics.add.existing(this)
 
-    // Garantiza textura 'px' si aún no existe (reload/reintentar)
+    // Garantiza textura 'px' si aún no existe
     if (!scene.textures.exists('px')) {
       const g = scene.make.graphics({ x: 0, y: 0, add: false })
       g.fillStyle(0xffffff, 1)
@@ -21,24 +21,24 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
     this.speed = opts.speed ?? 420
     this.size = Phaser.Math.Clamp(opts.size ?? 3, 1, 64)
 
-    // Pixel visible y con colisión razonable
+    // Apariencia y físicas
     this.setDepth(2)
     this.setDisplaySize(this.size, this.size)
-    if (this.body && this.body.setSize) this.body.setSize(this.size, this.size, true)
+    const collider = Math.max(1, this.size - 2) // un poco más pequeño que el visual
+    if (this.body && this.body.setSize) this.body.setSize(collider, collider, true)
     if (this.body && this.body.updateFromGameObject) this.body.updateFromGameObject()
     this.setBlendMode(Phaser.BlendModes.ADD)
     this.setActive(true).setVisible(true)
-    // Importante: sin gravedad mientras "carga" y sin movimiento
     this.body.setAllowGravity(false)
     this.setVelocity(0, 0)
     this.setCollideWorldBounds(false)
+    // Importante: no colisiona mientras “carga”
+    if (this.body) this.body.enable = false
 
     // Estado
     this._waiting = true
-    this._palette = [
-      0xff0000, 0xff7f00, 0xffff00, 0x00ff00,
-      0x00ffff, 0x0000ff, 0x8b00ff, 0xffffff
-    ]
+    // Solo rojo, anaranjado y amarillo
+    this._palette = [0xdc2626, 0xf97316, 0xf59e0b, 0xfbbf24]
     this._colorIdx = 0
 
     // Parpadeo de colores mientras carga (bucle)
@@ -72,11 +72,12 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
       return
     }
     this._waiting = false
-    // Detener parpadeo
     this._blinkEvent?.remove(false)
     this.clearTint()
     this.setAlpha(1)
     this.body.setAllowGravity(false)
+    // Habilitar colisión al lanzar
+    if (this.body) this.body.enable = true
 
     const px = this.scene.player.x
     const py = this.scene.player.y
@@ -93,5 +94,4 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
     this._launchEvent?.remove(false)
     this._lifeEvent?.remove(false)
     super.destroy(fromScene)
-  }
-}
+}}

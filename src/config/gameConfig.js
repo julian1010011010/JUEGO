@@ -4,9 +4,11 @@ const gameConfig = {
     // Puedes usar min/max para definir un rango aleatorio
     intervalMs: { min: 220, max: 420 },
     // NUEVO: velocidad de la partícula en px/s (acepta número o {min,max})
-    speed: { min: 200, max: 300 },
+    speed: { min: 100, max: 200 },
     // NUEVO: tamaño visual/collider en píxeles (acepta número o {min,max})
-    size: { min: 5, max: 15 }
+    size: { min: 5, max: 15 },
+    // NUEVO: cantidad de partículas por tick (acepta número o {min,max})
+    count: { min: 1, max: 1 }
   },
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)
@@ -19,6 +21,11 @@ const gameConfig = {
       dodger: 13
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     }
+  },
+
+  // NUEVO: margen adicional antes de morir por tocar la lava (en píxeles)
+  lava: {
+    killMargin: 6
   }
 }
 
