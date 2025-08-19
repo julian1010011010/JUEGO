@@ -77,8 +77,8 @@ export default class GameScene extends Phaser.Scene {
       const y = startY - i * 70
       this.platformFactory.spawn(x, y, this.pickPlatformType())
     }
-  // Plataforma base bajo el jugador (siempre normal)
-  this.platformFactory.spawn(width / 2, height - 60, 'normal')
+  // Plataforma base bajo el jugador (siempre normal y sin movimiento)
+  this.platformFactory.spawn(width / 2, height - 60, 'normal', { noMove: true })
 
   // Jugador y controlador
   this.playerCtrl = new PlayerController(this)

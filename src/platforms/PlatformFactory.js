@@ -649,7 +649,7 @@ export default class PlatformFactory {
    * @param {number} y
    * @param {keyof typeof PlatformFactory.PLATFORM_TYPES | null} [forcedType=null]
    */
-  spawn(x, y, forcedType = null) {
+  spawn(x, y, forcedType = null, options = null) {
     const { scene } = this
     const plat = scene.platforms.create(x, y, 'platform')
     plat.refreshBody()
@@ -662,8 +662,9 @@ export default class PlatformFactory {
     PlatformFactory.setTypeFlags(plat, typeKey)
     this.applyTypeBehavior(scene, plat, typeKey)
 
-    // 15% móviles si no son dodger, hielo, elástica ni inversa X
-    plat.isMoving = !plat.isDodger && !plat.isIce && !plat.isBouncy && !plat.isInvertX && Math.random() < 0.15
+  // 15% móviles si no son dodger, hielo, elástica ni inversa X, salvo que se fuerce no mover
+  const noMove = !!(options && options.noMove)
+  plat.isMoving = !noMove && !plat.isDodger && !plat.isIce && !plat.isBouncy && !plat.isInvertX && Math.random() < 0.15
     if (plat.isMoving) {
       const amplitude = Phaser.Math.Between(30, 90)
       const baseX = x
