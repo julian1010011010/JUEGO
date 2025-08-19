@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import PlatformFactory from '../platforms/PlatformFactory'
+import LavaParticle from '../effects/LavaParticle'
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -34,10 +35,14 @@ export default class GameScene extends Phaser.Scene {
     this._ended = false
     // Ventana temporal de resbalón cuando pisas hielo
     this._onIceUntil = 0
+
+    // Misiles de lava
+    this.lavaMissiles = null
+    this._lavaMissileTimer = null
   }
 
   preload() {
-  this.createTextures()
+    this.createTextures()
   }
 
   create() {
@@ -143,6 +148,12 @@ export default class GameScene extends Phaser.Scene {
   // Partículas de lava: fuego y piedritas pixeladas
   this.createLavaParticles()
 
+    // Grupo de misiles de lava y colisión con jugador
+    this.lavaMissiles = this.physics.add.group()
+    this.physics.add.overlap(this.player, this.lavaMissiles, () => {
+      if (!this._ended && this.canLose) this.gameOver('lava')
+    })
+
     // UI DOM
     this.scoreText = document.getElementById('score')
     this.timerEl = document.getElementById('timer')
@@ -160,6 +171,18 @@ export default class GameScene extends Phaser.Scene {
     // Gracia inicial
     this.canLose = false
     this.time.delayedCall(800, () => (this.canLose = true))
+
+    // Spawner de misiles de lava (aleatorio)
+    this._lavaMissileTimer = this.time.addEvent({
+      delay: Phaser.Math.Between(2500, 4200),
+      loop: true,
+      callback: () => {
+        if (this._ended || !this.canLose) return
+        this.spawnLavaParticle()
+        // Variar el siguiente intervalo
+        this._lavaMissileTimer.delay = Phaser.Math.Between(2500, 4200)
+      }
+    })
 
     // Inicializa estado de cruce de plataformas
     this.platforms.children.iterate(plat => {
@@ -389,6 +412,11 @@ export default class GameScene extends Phaser.Scene {
     if (this._ended) return
     this._ended = true
     this.physics.pause()
+    // Parar spawner y limpiar misiles restantes
+    this._lavaMissileTimer?.remove(false)
+    this._lavaMissileTimer = null
+    if (this.lavaMissiles) this.lavaMissiles.children.iterate(m => m && m.destroy())
+
     this.best = Math.max(this.best, this.score)
     localStorage.setItem('best_score', String(this.best))
 
@@ -576,5 +604,16 @@ export default class GameScene extends Phaser.Scene {
       emitting: true
     }).setDepth(2)
   }
+
+  // Spawnea un pixel de lava que parpadea 2s y luego se dispara al jugador
+  spawnLavaParticle() {
+    if (!this.lava) return null
+    const width = this.scale.width
+    const x = Phaser.Math.Between(6, width - 6)
+    const y = this.lava.y - 2
+    const missile = new LavaParticle(this, x, y, { delay: 2000, speed: 420 })
+    this.lavaMissiles.add(missile)
+    return missile
+  }
 }
- 
+
