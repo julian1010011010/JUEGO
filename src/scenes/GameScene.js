@@ -44,6 +44,8 @@ export default class GameScene extends Phaser.Scene {
     // Misiles de lava
     this.lavaMissiles = null
     this._lavaMissileTimer = null
+  // Factor para acelerar la subida de lava dinámicamente (p.ej. durante poderes)
+  this.lavaRiseBoost = 1
   }
 
   /** Devuelve un X aleatorio evitando el eje X de la base según config. */
@@ -79,6 +81,7 @@ export default class GameScene extends Phaser.Scene {
     this.lastGroundTime = 0
     this.currentPlatform = null
     this._onIceUntil = 0
+  this.lavaRiseBoost = 1
 
     // Asegura la textura 1x1 para cualquier uso antes de crear emisores/misiles
     this.ensurePxTexture()
@@ -346,7 +349,8 @@ export default class GameScene extends Phaser.Scene {
       const targetY = this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset
       const currentY = this.lava.y
       if (targetY < currentY) {
-        const maxStep = (this.lavaRiseSpeed * this.game.loop.delta) / 1000
+        const boost = (this.lavaRiseBoost && this.lavaRiseBoost > 0) ? this.lavaRiseBoost : 1
+        const maxStep = (this.lavaRiseSpeed * boost * this.game.loop.delta) / 1000
         this.lava.y = Math.max(targetY, currentY - maxStep)
       }
       this.lava.tilePositionY -= 0.4

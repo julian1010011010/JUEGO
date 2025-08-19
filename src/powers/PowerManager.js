@@ -9,6 +9,8 @@ export default class PowerManager {
     this.group = scene.physics.add.staticGroup()
     this.active = null // { key: string, until: number }
     this._bobTweens = new Set()
+  this._blinkTween = null
+  this.uiText = null
 
     this._ensureTextures()
 
@@ -19,6 +21,25 @@ export default class PowerManager {
       item.destroy()
       if (key === 'noGravity') this.activateNoGravity()
     })
+  }
+
+  _ensureUi() {
+    if (this.uiText && !this.uiText.destroyed) return
+    const s = this.scene
+    const w = s.scale.width, h = s.scale.height
+    this.uiText = s.add.text(w * 0.5, h * 0.38, '', {
+      fontFamily: 'monospace',
+      fontSize: '96px',
+      color: '#22c55e',
+      stroke: '#0b1020',
+      strokeThickness: 6
+    })
+      .setOrigin(0.5)
+      .setScrollFactor(0, 0)
+      // Profundidad baja para sensación de fondo pero visible sobre el clear color
+      .setDepth(0)
+      .setAlpha(0.25)
+      .setVisible(false)
   }
 
   /** Genera texturas para poderes y para skin del jugador en poder. */
@@ -103,8 +124,9 @@ export default class PowerManager {
     // Si ya hay un poder igual, extender duración
     if (this.active?.key === 'noGravity') {
       this.active.until = now + duration
+      this.active.warned = false
     } else {
-      this.active = { key: 'noGravity', until: now + duration }
+  this.active = { key: 'noGravity', until: now + duration, duration, warned: false }
       // Cambiar diseño
       player._baseTextureKey = player.texture?.key
       if (this.scene.textures.exists('player_nograv')) player.setTexture('player_nograv')
@@ -112,10 +134,27 @@ export default class PowerManager {
       player.setTint(0x22d3ee)
     }
 
-    // Aplicar efectos inmediatos
+  // Aplicar efectos inmediatos
     player.body.allowGravity = false
     // Opcional: cancelar velocidad hacia abajo instantánea
     if (player.body.velocity.y > 0) player.setVelocityY(0)
+
+    // Ajustar lava durante el poder (acelerar subida si se configuró)
+    const boost = Number(gameConfig?.powers?.noGravity?.lavaRiseBoost)
+    if (isFinite(boost) && boost > 0) {
+      const s = this.scene
+      // Si ya hay boost previo (por otro poder), tomar el mayor
+      s.lavaRiseBoost = Math.max(1, boost, s.lavaRiseBoost || 1)
+    }
+
+    // UI
+    this._ensureUi()
+    this.uiText.setVisible(true)
+    // Re-centrar por si cambió el tamaño (modo responsive)
+    try {
+      const w = this.scene.scale.width, h = this.scene.scale.height
+      this.uiText.setPosition(w * 0.5, h * 0.38)
+    } catch {}
   }
 
   /** Llamar en update() de la escena para mantener y expirar poderes. */
@@ -128,6 +167,50 @@ export default class PowerManager {
       const floatSpeed = Math.max(0, Number(gameConfig?.powers?.noGravity?.floatSpeed) || 60)
       // Mantener una subida suave
       if (player.body.velocity.y > -floatSpeed) player.setVelocityY(-floatSpeed)
+    }
+
+    // UI contador restante (fondo, grande, con gradiente verde→rojo)
+    const remaining = Math.max(0, this.active.until - this.scene.time.now)
+    if (this.uiText && !this.uiText.destroyed) {
+      const secs = (remaining / 1000)
+      // Mostrar solo número con 1 decimal
+      this.uiText.setText(secs.toFixed(1))
+      // Color: verde (#22c55e) → rojo (#ef4444)
+      const total = Math.max(1, this.active.duration || 1000)
+      const t = 1 - Math.min(1, Math.max(0, remaining / total))
+      const from = Phaser.Display.Color.ValueToColor(0x22c55e)
+      const to = Phaser.Display.Color.ValueToColor(0xef4444)
+      const r = Math.round(from.red + (to.red - from.red) * t)
+      const g = Math.round(from.green + (to.green - from.green) * t)
+      const b = Math.round(from.blue + (to.blue - from.blue) * t)
+      const css = Phaser.Display.Color.RGBToString(r, g, b, 0, '#')
+      this.uiText.setColor(css)
+      this.uiText.setVisible(true)
+    }
+
+    // Parpadeo rápido en los últimos ms configurables
+    const warnMs = Math.max(0, Number(gameConfig?.powers?.warningMs) || 500)
+    if (remaining <= warnMs) {
+      if (!this.active.warned) {
+        this.active.warned = true
+        // Inicia tween de parpadeo rápido
+        try { this._blinkTween?.stop() } catch {}
+        player.setAlpha(1)
+        this._blinkTween = this.scene.tweens.add({
+          targets: player,
+          alpha: { from: 1, to: 0.1 },
+          duration: 90,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.inOut'
+        })
+      }
+    } else if (this.active.warned) {
+      // Si se extendió el poder, cancelar el parpadeo y resetear
+      this.active.warned = false
+      try { this._blinkTween?.stop() } catch {}
+      this._blinkTween = null
+      player.setAlpha(1)
     }
 
     if (this.scene.time.now >= this.active.until) {
@@ -147,7 +230,16 @@ export default class PowerManager {
         player.setTexture(player._baseTextureKey)
       }
       player.clearTint()
+      try { this._blinkTween?.stop() } catch {}
+      this._blinkTween = null
+      player.setAlpha(1)
     }
     this.active = null
+  // Restaurar boost de lava
+  if (this.scene) this.scene.lavaRiseBoost = 1
+    if (this.uiText && !this.uiText.destroyed) {
+      this.uiText.setVisible(false)
+      this.uiText.setText('')
+    }
   }
 }
