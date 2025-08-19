@@ -199,10 +199,8 @@ export default class PlatformFactory {
     plat.isTimed = typeKey === 'timed'
     plat.isDodger = typeKey === 'dodger'
     plat.isIce = typeKey === 'ice'
-    plat.isInversa = typeKey === 'inversa'
-    // NUEVO:
-    plat.isBouncy = typeKey === 'bouncy'
-    // NUEVO:
+    plat.isInversa = typeKey === 'inversa' 
+    plat.isBouncy = typeKey === 'bouncy' 
     plat.isInvertX = typeKey === 'invertX'
   }
 
@@ -326,12 +324,46 @@ export default class PlatformFactory {
    * Aplica comportamiento para plataforma 'fragile' (frágil).
    * - Meta/tinte.
    * - Limpieza de tweens y normalización de alpha.
+   * - Se rompe 0.5s después de que el jugador se apoye encima.
    */
   applyFragileBehavior(scene, plat) {
     PlatformFactory.applyTypeMeta(plat, 'fragile')
     scene.tweens.killTweensOf(plat)
     plat.setAlpha(1)
     plat.setTint(PlatformFactory.PLATFORM_TYPES.fragile.color)
+
+    // Sensor superior y rotura tras 0.5s de contacto
+    PlatformFactory.ensurePxTexture(scene)
+    const zone = PlatformFactory.createStayZone(scene, plat, 6)
+    // Guardar como stayZone para que el tween de movimiento la mantenga alineada
+    plat.stayZone = zone
+    plat._fragileTriggered = false
+
+    const triggerBreak = () => {
+      if (plat._fragileTriggered || !plat.active) return
+      plat._fragileTriggered = true
+      // Parpadea 0.5s y luego destruye
+      PlatformFactory.blinkFor(scene, plat, 500).then(() => {
+        if (plat.active) plat.destroy()
+      })
+    }
+
+    // Comprobación ligera de solape con el jugador
+    plat._fragileEv = scene.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => {
+        if (!plat.active || !scene.player || !zone.body) return
+        const overlapping = scene.physics.world.overlap(scene.player, zone)
+        if (overlapping) triggerBreak()
+      }
+    })
+
+    // Limpieza
+    plat.once('destroy', () => {
+      plat._fragileEv?.remove(false)
+      zone.destroy()
+    })
   }
 
   /**
@@ -346,7 +378,7 @@ export default class PlatformFactory {
     plat.setTint(PlatformFactory.PLATFORM_TYPES.timed.color)
 
     // Parpadeo inicial (1s)
-    PlatformFactory.blinkFor(scene, plat, 1000)
+    PlatformFactory.blinkFor(scene, plat, 500)
 
     // Sensor y control de permanencia/desaparición-reaparición
     PlatformFactory.ensurePxTexture(scene)
@@ -364,7 +396,7 @@ export default class PlatformFactory {
         const onTop = scene.physics.world.overlap(scene.player, stayZone)
         if (onTop) {
           plat._stayAccumMs += tickMs
-          if (!plat._breaking && plat._stayAccumMs >= 2000) {
+          if (!plat._breaking && plat._stayAccumMs >= 1000) {
             plat._breaking = true
             PlatformFactory.blinkFor(scene, plat, 1000).then(() => { if (plat.active) plat.destroy() })
           }
@@ -635,7 +667,7 @@ export default class PlatformFactory {
     if (plat.isMoving) {
       const amplitude = Phaser.Math.Between(30, 90)
       const baseX = x
-      scene.tweens.add({
+      const moveTween = scene.tweens.add({
         targets: plat,
         x: { from: baseX - amplitude, to: baseX + amplitude },
         yoyo: true,
@@ -643,17 +675,27 @@ export default class PlatformFactory {
         duration: Phaser.Math.Between(1500, 2800),
         ease: 'Sine.inOut',
         onUpdate: (tween, target) => {
-          if (target && target.body && target.body.updateFromGameObject) {
-            target.body.updateFromGameObject()
+          // Proteger contra objetos destruidos en mitad del tween
+          if (!target || !target.active) return
+          const body = target.body
+          if (body && typeof body.updateFromGameObject === 'function') {
+            body.updateFromGameObject()
           }
-          // Mantener la stayZone alineada si existe
-          if (target && target.stayZone) {
-            target.stayZone.x = target.x
-            target.stayZone.y = target.y - target.displayHeight / 2 - target.stayZone.displayHeight / 2
-            target.stayZone.refreshBody()
+          // Mantener la stayZone alineada si existe y su body sigue válido
+          const zone = target.stayZone
+          if (zone && zone.body) {
+            zone.x = target.x
+            zone.y = target.y - target.displayHeight / 2 - zone.displayHeight / 2
+            zone.refreshBody()
           }
         }
-      }) 
+      })
+      // Guardar referencia y limpiar al destruir la plataforma
+      plat._moveTween = moveTween
+      plat.once('destroy', () => {
+        try { scene.tweens.killTweensOf(plat) } catch {}
+        try { moveTween?.stop?.() } catch {}
+      })
     }
 
     return plat

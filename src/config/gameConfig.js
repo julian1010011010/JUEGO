@@ -7,17 +7,21 @@ const gameConfig = {
     // NUEVO: tasa de generación por minuto (si se define, ignora intervalSeconds/intervalMs)
     ratePerMinute: 0, // 0 para desactivar
 
-    // Asegura que, aunque se use el respaldo, no se generen misiles
-    intervalSeconds: 0,
+  // Cada cuánto tiempo (elige UNA de estas opciones):
+  // 1) Segundos fijos entre oleadas (número > 0)
+  intervalSeconds: 2.5,
+  // 2) Milisegundos fijos o rango {min,max} (se usa si no hay intervalSeconds; ignora si ratePerMinute > 0)
+  // intervalMs: 3000,
+  // intervalMs: { min: 1500, max: 3500 },
 
     // Velocidad de la partícula en px/s (acepta número o {min,max})
-    speed: { min: 100, max: 200 },
+    speed: { min: 10, max: 20 },
 
     // Tamaño visual/collider en píxeles (acepta número o {min,max})
     size: { min: 10, max: 20 },
 
-    // Cantidad por tick (obsoleto si usas ratePerMinute)
-    // count: 1
+  // Cantidad de misiles por oleada (número o {min,max})
+  count: { min: 1, max: 2  }
   },
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)

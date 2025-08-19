@@ -739,18 +739,6 @@ export default class GameScene extends Phaser.Scene {
     } catch {}
   }
 
-  // NUEVO: lee la cantidad por tick desde config (número fijo o rango)
-  getLavaMissileCount() {
-    const cfg = gameConfig?.lavaMissiles?.count
-    if (typeof cfg === 'number') return Math.max(0, cfg | 0)
-    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
-      const min = Math.max(0, (cfg.min ?? 1) | 0)
-      const max = Math.max(min, (cfg.max ?? min) | 0)
-      return Phaser.Math.Between(min, max)
-    }
-    return 1
-  }
-
   // Limpia de forma segura el grupo de misiles evitando acceder a children inexistente
   clearLavaMissiles() {
     const group = this.lavaMissiles
