@@ -55,8 +55,8 @@ export default class GameScene extends Phaser.Scene {
     for (let i = 0; i < 12; i++) {
       this.platformFactory.spawn(Phaser.Math.Between(60, width - 60), startY - i * 70)
     }
-    // Plataforma base bajo el jugador
-    this.platformFactory.spawn(width / 2, height - 60)
+  // Plataforma base bajo el jugador (siempre normal)
+  this.platformFactory.spawn(width / 2, height - 60, 'normal')
 
   // Jugador
   this.player = this.physics.add.sprite(width / 2, height - 120, 'player')

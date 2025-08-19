@@ -4,7 +4,7 @@ export default class PlatformFactory {
   static PLATFORM_TYPES = {
   fragile:   { name: 'Frágil',      color: 0xff1744, typeChance: 0.10 }, // rojo vivo
   timed:     { name: 'Temporizada', color: 0xffea00, typeChance: 0.15 }, // amarillo neón
-  dodger:    { name: 'Escurridiza', color: 0x651fff, typeChance: 0.15 }, // violeta intenso
+  dodger:    { name: 'Escurridiza', color: 0x651fff, typeChance: 0.15 }, // lavioleta intenso
   ice:       { name: 'Hielo',       color: 0x00e5ff, typeChance: 0.15 }, // celeste brillante
   normal:    { name: 'Normal',      color: null,     typeChance: 0.45 }, // sin color
   // Eliminada la plataforma 'moving' por no tener poder
@@ -20,18 +20,26 @@ export default class PlatformFactory {
    * Crea una plataforma en (x,y) con posibles rasgos especiales.
    * Devuelve el GameObject de plataforma (Static Physics Sprite).
    */
-  spawn(x, y) {
+  spawn(x, y, forcedType = null) {
     const { scene } = this
     const plat = scene.platforms.create(x, y, 'platform')
     plat.refreshBody()
 
-    // Asignación de tipos (mutuamente excluyentes salvo móviles):
-    // frágil (10%), temporizada (15%), escurridiza/dodger (15%), hielo (15%), normal en otro caso.
-    const r = Math.random()
-    plat.isFragile = r < 0.10
-    plat.isTimed = !plat.isFragile && r >= 0.10 && r < 0.25
-    plat.isDodger = !plat.isFragile && !plat.isTimed && r >= 0.25 && r < 0.40
-    plat.isIce    = !plat.isFragile && !plat.isTimed && !plat.isDodger && r >= 0.40 && r < 0.55
+    // Permitir forzar el tipo de plataforma
+    if (forcedType && PlatformFactory.PLATFORM_TYPES[forcedType]) {
+      plat.isFragile = forcedType === 'fragile'
+      plat.isTimed = forcedType === 'timed'
+      plat.isDodger = forcedType === 'dodger'
+      plat.isIce = forcedType === 'ice'
+    } else {
+      // Asignación de tipos (mutuamente excluyentes salvo móviles):
+      // frágil (10%), temporizada (15%), escurridiza/dodger (15%), hielo (15%), normal en otro caso.
+      const r = Math.random()
+      plat.isFragile = r < 0.10
+      plat.isTimed = !plat.isFragile && r >= 0.10 && r < 0.25
+      plat.isDodger = !plat.isFragile && !plat.isTimed && r >= 0.25 && r < 0.40
+      plat.isIce    = !plat.isFragile && !plat.isTimed && !plat.isDodger && r >= 0.40 && r < 0.55
+    }
 
     // Asignar nombre, color y chance según tipo
     if (plat.isFragile) {
