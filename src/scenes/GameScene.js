@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import PlatformFactory from '../platforms/PlatformFactory'
 import LavaParticle from '../effects/LavaParticle'
+import gameConfig from '../config/gameConfig'
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -58,7 +59,9 @@ export default class GameScene extends Phaser.Scene {
     // Crear plataformas iniciales
     const startY = height - 50
     for (let i = 0; i < 12; i++) {
-      this.platformFactory.spawn(Phaser.Math.Between(60, width - 60), startY - i * 70)
+      const x = Phaser.Math.Between(60, width - 60)
+      const y = startY - i * 70
+      this.platformFactory.spawn(x, y, this.pickPlatformType())
     }
   // Plataforma base bajo el jugador (siempre normal)
   this.platformFactory.spawn(width / 2, height - 60, 'normal')
@@ -172,15 +175,16 @@ export default class GameScene extends Phaser.Scene {
     this.canLose = false
     this.time.delayedCall(800, () => (this.canLose = true))
 
-    // Spawner de misiles de lava (aleatorio)
+    // Temporizador de misiles de lava usando configuración
     this._lavaMissileTimer = this.time.addEvent({
-      delay: Phaser.Math.Between(2500, 4200),
+      delay: this.getNextLavaMissileDelay(),
       loop: true,
       callback: () => {
         if (this._ended || !this.canLose) return
-        this.spawnLavaParticle()
-        // Variar el siguiente intervalo
-        this._lavaMissileTimer.delay = Phaser.Math.Between(2500, 4200)
+        this.spawnLavaParticle?.()
+        if (this._lavaMissileTimer) {
+          this._lavaMissileTimer.delay = this.getNextLavaMissileDelay()
+        }
       }
     })
 
@@ -313,8 +317,8 @@ export default class GameScene extends Phaser.Scene {
     while (this.platforms.getChildren().length < 14) {
       const topY = this.getTopPlatformY()
       const newY = topY - Phaser.Math.Between(60, 100)
-      const newX = Phaser.Math.Between(60, width - 60)
-      this.platformFactory.spawn(newX, newY)
+      const newX = Phaser.Math.Between(60, this.scale.width - 60)
+      this.platformFactory.spawn(newX, newY, this.pickPlatformType())
     }
 
     // Reubicación escurridizas al aproximarse en ascenso
@@ -412,9 +416,10 @@ export default class GameScene extends Phaser.Scene {
     if (this._ended) return
     this._ended = true
     this.physics.pause()
-    // Parar spawner y limpiar misiles restantes
+    // Detener spawner de misiles si existe
     this._lavaMissileTimer?.remove(false)
     this._lavaMissileTimer = null
+    // Limpiar misiles restantes
     if (this.lavaMissiles) this.lavaMissiles.children.iterate(m => m && m.destroy())
 
     this.best = Math.max(this.best, this.score)
@@ -614,6 +619,29 @@ export default class GameScene extends Phaser.Scene {
     const missile = new LavaParticle(this, x, y, { delay: 2000, speed: 420 })
     this.lavaMissiles.add(missile)
     return missile
+  }
+
+  // Selección ponderada del tipo de plataforma según config
+  pickPlatformType() {
+    const weights = (gameConfig.platforms && gameConfig.platforms.weights) || {}
+    const entries = Object.entries(weights).filter(([, w]) => w > 0)
+    if (!entries.length) return 'normal'
+    const total = entries.reduce((acc, [, w]) => acc + w, 0)
+    let r = Phaser.Math.Between(1, total)
+    for (const [type, w] of entries) {
+      r -= w
+      if (r <= 0) return type
+    }
+    return 'normal'
+  }
+
+  // Lee el rango de intervalo desde config para el spawn de misiles
+  getNextLavaMissileDelay() {
+    const cfg = gameConfig.lavaMissiles && gameConfig.lavaMissiles.intervalMs
+    if (!cfg) return 3000
+    const min = Math.max(100, cfg.min ?? cfg[0] ?? 3000)
+    const max = Math.max(min, cfg.max ?? cfg[1] ?? min)
+    return Phaser.Math.Between(min, max)
   }
 }
 
