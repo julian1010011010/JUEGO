@@ -166,9 +166,12 @@ export default class PlayerController {
       this.currentPlatform = null
     }
 
-    // Wrap horizontal
-    if (this.player.x < -16) this.player.x = width + 16
-    if (this.player.x > width + 16) this.player.x = -16
+    // Wrap horizontal inmediato (sin margen): al cruzar el borde aparece al otro lado
+    if (this.player.x < 0) {
+      this.player.setX(width)
+    } else if (this.player.x > width) {
+      this.player.setX(0)
+    }
 
     // Reubicación escurridizas al aproximarse en ascenso
     if (this.player.body.velocity.y < -50) {
@@ -188,7 +191,7 @@ export default class PlayerController {
     let newX
     let attempts = 0
     do {
-      newX = Phaser.Math.Between(60, width - 60)
+  newX = Phaser.Math.Between(12, width - 12)
       attempts++
     } while (Math.abs(newX - plat.x) < 100 && attempts < 8)
     plat.x = newX

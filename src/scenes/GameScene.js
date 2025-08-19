@@ -53,7 +53,7 @@ export default class GameScene extends Phaser.Scene {
     const width = this.scale.width
   const baseX = this.platformBaseX ?? (width / 2)
     const avoidRadius = Number(gameConfig?.platforms?.avoidBaseXRadius) || 0
-    const minX = 60, maxX = width - 60
+  const minX = 12, maxX = width - 12
     if (avoidRadius <= 0) return Phaser.Math.Between(minX, maxX)
     let x
     let attempts = 0
@@ -300,6 +300,7 @@ export default class GameScene extends Phaser.Scene {
     const camY = this.cameras.main.worldView.y
     this.platforms.children.iterate(plat => {
       if (!plat) return
+      if (plat.isGhost) return // ignorar fantasmas para limpieza normal (se destruyen junto al original)
       // Cancela temporizador al dejar temporizada
       if (plat.isTimed && plat._timing && this.currentPlatform !== plat) {
         if (plat._timer) { plat._timer.remove(false); plat._timer = null }
@@ -310,11 +311,14 @@ export default class GameScene extends Phaser.Scene {
         plat.destroy()
       }
     })
-    while (this.platforms.getChildren().length < 14) {
+    // Contar solo plataformas reales (no fantasmas) para mantener densidad
+    const realCount = this.platforms.getChildren().filter(p => p && !p.isGhost).length
+    while (realCount + 0 < 14) {
       const topY = this.getTopPlatformY()
       const newY = topY - Phaser.Math.Between(60, 100)
   const newX = this.pickSpawnX()
       this.platformFactory.spawn(newX, newY, this.pickPlatformType())
+      break // añade de una en una por frame para evitar picos
     }
 
   // La reubicación de escurridizas durante el ascenso la gestiona el controlador
@@ -322,6 +326,7 @@ export default class GameScene extends Phaser.Scene {
     // Scoring por cruce de plataformas
     this.platforms.children.iterate(plat => {
       if (!plat) return
+      if (plat.isGhost) return // ignorar fantasmas en puntuación
       if (plat.lastState === undefined) plat.lastState = (this.player.y < plat.y - 8) ? 'above' : 'below'
       const aboveNow = this.player.y < plat.y - 8
       const belowNow = this.player.y > plat.y + 8

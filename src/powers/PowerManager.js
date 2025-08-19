@@ -11,6 +11,7 @@ export default class PowerManager {
     this._bobTweens = new Set()
   this._blinkTween = null
   this.uiText = null
+  this._pulseTween = null
 
     this._ensureTextures()
 
@@ -29,16 +30,18 @@ export default class PowerManager {
     const w = s.scale.width, h = s.scale.height
     this.uiText = s.add.text(w * 0.5, h * 0.38, '', {
       fontFamily: 'monospace',
-      fontSize: '96px',
-      color: '#22c55e',
+      fontSize: '112px',
+      color: '#39ff14',
       stroke: '#0b1020',
-      strokeThickness: 6
+      strokeThickness: 8
     })
       .setOrigin(0.5)
       .setScrollFactor(0, 0)
       // Profundidad baja para sensación de fondo pero visible sobre el clear color
       .setDepth(0)
-      .setAlpha(0.25)
+      .setAlpha(0.4)
+      .setScale(1)
+      .setShadow(0, 0, 'rgba(0,0,0,0.35)', 12, true, true)
       .setVisible(false)
   }
 
@@ -175,14 +178,24 @@ export default class PowerManager {
       const secs = (remaining / 1000)
       // Mostrar solo número con 1 decimal
       this.uiText.setText(secs.toFixed(1))
-      // Color: verde (#22c55e) → rojo (#ef4444)
+      // Color vívido: verde (#39FF14) → amarillo (#FFEA00) → rojo (#FF1744)
       const total = Math.max(1, this.active.duration || 1000)
-      const t = 1 - Math.min(1, Math.max(0, remaining / total))
-      const from = Phaser.Display.Color.ValueToColor(0x22c55e)
-      const to = Phaser.Display.Color.ValueToColor(0xef4444)
-      const r = Math.round(from.red + (to.red - from.red) * t)
-      const g = Math.round(from.green + (to.green - from.green) * t)
-      const b = Math.round(from.blue + (to.blue - from.blue) * t)
+      const p = 1 - Math.min(1, Math.max(0, remaining / total))
+      const c1 = Phaser.Display.Color.ValueToColor(0x39ff14)
+      const c2 = Phaser.Display.Color.ValueToColor(0xffea00)
+      const c3 = Phaser.Display.Color.ValueToColor(0xff1744)
+      let r, g, b
+      if (p < 0.5) {
+        const t = p / 0.5
+        r = Math.round(c1.red + (c2.red - c1.red) * t)
+        g = Math.round(c1.green + (c2.green - c1.green) * t)
+        b = Math.round(c1.blue + (c2.blue - c1.blue) * t)
+      } else {
+        const t = (p - 0.5) / 0.5
+        r = Math.round(c2.red + (c3.red - c2.red) * t)
+        g = Math.round(c2.green + (c3.green - c2.green) * t)
+        b = Math.round(c2.blue + (c3.blue - c2.blue) * t)
+      }
       const css = Phaser.Display.Color.RGBToString(r, g, b, 0, '#')
       this.uiText.setColor(css)
       this.uiText.setVisible(true)
@@ -211,6 +224,27 @@ export default class PowerManager {
       try { this._blinkTween?.stop() } catch {}
       this._blinkTween = null
       player.setAlpha(1)
+    }
+
+    // Pulso (zoom in/out) durante el último segundo del contador
+    const pulseMs = 1000
+    if (remaining <= pulseMs) {
+      if (!this._pulseTween && this.uiText && !this.uiText.destroyed) {
+        try { this._pulseTween?.stop() } catch {}
+        this.uiText.setScale(1)
+        this._pulseTween = this.scene.tweens.add({
+          targets: this.uiText,
+          scale: { from: 1.0, to: 1.3 },
+          duration: 140,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.inOut'
+        })
+      }
+    } else if (this._pulseTween) {
+      try { this._pulseTween.stop() } catch {}
+      this._pulseTween = null
+      if (this.uiText && !this.uiText.destroyed) this.uiText.setScale(1)
     }
 
     if (this.scene.time.now >= this.active.until) {
