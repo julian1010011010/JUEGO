@@ -71,14 +71,20 @@ export default class GameScene extends Phaser.Scene {
     this.platformFactory = new PlatformFactory(this)
 
     // Crear plataformas iniciales
-    const startY = height - 50
+   const startOffset = Number(gameConfig?.platforms?.startYOffset) || 50
+  const gapAboveBase = Number(gameConfig?.platforms?.minGapAboveBase) || 40
+  const baseY = height - (startOffset + 10)
+  const startY = baseY - gapAboveBase
     for (let i = 0; i < 12; i++) {
       const x = Phaser.Math.Between(60, width - 60)
       const y = startY - i * 70
       this.platformFactory.spawn(x, y, this.pickPlatformType())
-    }
+    } 
   // Plataforma base bajo el jugador (siempre normal y sin movimiento)
-  this.platformFactory.spawn(width / 2, height - 60, 'normal', { noMove: true })
+  this.platformFactory.spawn(width / 2, baseY, 'normal', { noMove: true })
+
+  // Límite global: no permitir spawns debajo de esta línea (por ejemplo, respawns)
+  this.platformSpawnMaxY = baseY - gapAboveBase
 
   // Jugador y controlador
   this.playerCtrl = new PlayerController(this)

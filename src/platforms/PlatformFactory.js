@@ -651,7 +651,10 @@ export default class PlatformFactory {
    */
   spawn(x, y, forcedType = null, options = null) {
     const { scene } = this
-    const plat = scene.platforms.create(x, y, 'platform')
+    // Clamp Y para evitar spawns por debajo de la base (si la escena define el límite)
+    const clampY = Number(scene.platformSpawnMaxY)
+    const spawnY = isFinite(clampY) ? Math.min(y, clampY) : y
+    const plat = scene.platforms.create(x, spawnY, 'platform')
     plat.refreshBody()
 
     // REEMPLAZO: selección/aplicación del tipo (con flags y comportamiento)

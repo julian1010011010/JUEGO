@@ -26,6 +26,11 @@ const gameConfig = {
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)
   platforms: {
+  // NUEVO: distancia desde el borde inferior para empezar a generar las primeras plataformas
+  // (valores mayores = más arriba, más cerca del tope de la pantalla)
+  startYOffset: 90,
+  // NUEVO: separación mínima por encima de la plataforma base donde pueden aparecer plataformas
+  minGapAboveBase: 40,
     weights: {
       normal: 10,
       fragile: 10,
