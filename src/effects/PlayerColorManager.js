@@ -2,7 +2,8 @@ export default class PlayerColorManager {
   constructor(scene, player = null) {
     this.scene = scene
     this.player = player
-    this._watches = new Map() // Map<target, { event, color }>
+  this._watches = new Map() // Map<target, { event, color }>
+  this._footZone = null // sensor bajo los pies, como la estela
   }
 
   setPlayer(player) {
@@ -34,6 +35,8 @@ export default class PlayerColorManager {
     for (const { event } of this._watches.values()) event?.remove(false)
     this._watches.clear()
     this.player?.clearTint?.()
+  try { this._footZone?.destroy?.() } catch {}
+  this._footZone = null
   }
 
   destroy() {
@@ -43,21 +46,54 @@ export default class PlayerColorManager {
   // Unifica la lógica y toma color del target si no fue provisto en applyWhileOverlap,
   // y resuelve Groups hijo por hijo.
   _recomputeTint() {
-    const p = this.player
-    const world = this.scene?.physics?.world
-    if (!p || !p.active || !world) return
+    const scene = this.scene
+    const player = this.player
+    const world = scene?.physics?.world
+    if (!scene || !player || !player.active || !player.body || !world) return
 
+    // Asegurar textura px para el sensor si es necesario
+    this._ensurePxTexture()
+    this._ensureFootZone()
+
+    // Dimensionar y posicionar sensor bajo los pies (mismo enfoque que la estela)
+    const fh = 6
+    this._footZone.setDisplaySize?.(player.displayWidth, fh)
+    if (this._footZone.body?.setSize) {
+      this._footZone.body.setSize(this._footZone.displayWidth, fh, true)
+    } else {
+      this._footZone.setSize?.(player.displayWidth, fh)
+    }
+    const pb = player.body
+    const cx = pb.center?.x ?? player.x
+    const bottom = pb.bottom ?? (player.y + player.displayHeight / 2)
+    if (this._footZone.body?.reset) {
+      this._footZone.body.reset(cx, bottom + fh / 2 + 1)
+    } else {
+      this._footZone.setPosition?.(cx, bottom + fh / 2 + 1)
+    }
+
+    // Recorrer los targets vigilados (p. ej., el staticGroup de plataformas)
     let chosen = null
-    for (const [target, meta] of this._watches.entries()) {
-      if (target && target.active === false) continue
-      const inferred = this._resolveOverlapColor(p, target, meta, world)
-      if (inferred != null) {
-        chosen = inferred
+    for (const [target] of this._watches.entries()) {
+      if (!target) continue
+      // Busca la primera plataforma bajo el sensor y usa su typeColor (fallback blanco)
+      let hit = null
+      scene.physics.overlap(this._footZone, target, (_z, other) => {
+        if (hit) return
+        hit = other
+      })
+      if (hit) {
+        const c = (typeof hit.typeColor === 'number' && hit.typeColor >= 0)
+          ? hit.typeColor
+          : this._extractColorFrom(hit)
+        chosen = (c != null ? c : 0xffffff)
         break
       }
     }
-    if (chosen != null) p.setTint?.(chosen)
-    else p.clearTint?.()
+
+    // Sin plataforma bajo el pie: blanco como la estela
+    if (chosen == null) chosen = 0xffffff
+    player.setTint?.(chosen)
   }
 
   // Devuelve el color del objeto (o del hijo del Group) que realmente está solapando
@@ -118,5 +154,29 @@ export default class PlayerColorManager {
     if (tints.length > 0) return tints[0]
 
     return null
+  }
+
+  // --- helpers privados ---
+  _ensurePxTexture() {
+    const scene = this.scene
+    if (!scene || scene.textures?.exists('px')) return
+    const g = scene.make.graphics({ x: 0, y: 0, add: false })
+    g.fillStyle(0xffffff, 1)
+    g.fillRect(0, 0, 1, 1)
+    g.generateTexture('px', 1, 1)
+    g.destroy()
+  }
+
+  _ensureFootZone() {
+    const scene = this.scene
+    if (this._footZone && this._footZone.body) return this._footZone
+    try { this._footZone?.destroy?.() } catch {}
+    if (!scene?.physics?.add) return null
+    this._footZone = scene.physics.add.image(0, 0, 'px')
+      .setVisible(false)
+      .setAlpha(0)
+      .setImmovable(true)
+    if (this._footZone.body) this._footZone.body.allowGravity = false
+    return this._footZone
   }
 }

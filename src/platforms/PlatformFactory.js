@@ -653,10 +653,7 @@ export default class PlatformFactory {
             target.stayZone.refreshBody()
           }
         }
-      })
-      // Si quieres mostrar el color de móvil, descomenta:
-      // plat.setTint(PlatformFactory.PLATFORM_TYPES.moving.color)
-      // plat.typeName += ' + ' + PlatformFactory.PLATFORM_TYPES.moving.name
+      }) 
     }
 
     return plat
