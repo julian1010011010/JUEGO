@@ -282,7 +282,7 @@ export default class PlatformFactory {
     PlatformFactory.applyTypeMeta(plat, 'inversa')
     plat.setTint(0x000000)
 
-    // Movimiento opuesto al del jugador (solo mientras se mueve)
+    // Movimiento opuesto al del jugador (solo mientras se mueve) + WRAP horizontal
     plat._inversaTween = scene.time.addEvent({
       delay: 16,
       loop: true,
@@ -291,9 +291,23 @@ export default class PlatformFactory {
         const body = scene.player.body
         if (body && Math.abs(body.velocity.x) > 0.1) {
           const speed = 4
-          plat.x -= Math.sign(body.velocity.x) * speed 
-          plat.refreshBody()
+          plat.x -= Math.sign(body.velocity.x) * speed
         }
+
+        // NUEVO: screen wrap horizontal (como el personaje)
+        const bounds = scene.physics?.world?.bounds
+        const cam = scene.cameras?.main
+        const left = bounds?.left ?? cam?.worldView?.x ?? 0
+        const right = bounds ? bounds.right : (left + (cam?.worldView?.width ?? scene.scale?.width ?? 800))
+        const halfW = (plat.displayWidth ?? plat.width ?? 0) * 0.5
+
+        if (plat.x < left - halfW) {
+          plat.x = right + halfW
+        } else if (plat.x > right + halfW) {
+          plat.x = left - halfW
+        }
+
+        plat.refreshBody()
       }
     })
     plat.once('destroy', () => plat._inversaTween?.remove(false))
