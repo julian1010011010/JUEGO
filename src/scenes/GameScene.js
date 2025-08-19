@@ -555,21 +555,6 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  setupTouchControls() {
-    this.leftPressed = false
-    this.rightPressed = false
-    const leftZone = this.add.zone(0, 0, this.scale.width / 2, this.scale.height).setOrigin(0)
-    const rightZone = this.add.zone(this.scale.width / 2, 0, this.scale.width / 2, this.scale.height).setOrigin(0)
-    leftZone.setInteractive({ useHandCursor: true })
-    rightZone.setInteractive({ useHandCursor: true })
-    leftZone.on('pointerdown', () => (this.leftPressed = true))
-    leftZone.on('pointerup', () => (this.leftPressed = false))
-    leftZone.on('pointerout', () => (this.leftPressed = false))
-    rightZone.on('pointerdown', () => (this.rightPressed = true))
-    rightZone.on('pointerup', () => (this.rightPressed = false))
-    rightZone.on('pointerout', () => (this.rightPressed = false))
-  }
-
   createTextures() {
     const g = this.make.graphics({ x: 0, y: 0, add: false })
     // Jugador

@@ -54,7 +54,7 @@ export default class PlayerController {
     scene.input.keyboard.addCapture([
       Phaser.Input.Keyboard.KeyCodes.SPACE,
       Phaser.Input.Keyboard.KeyCodes.UP,
-      Phaser.Input.Keyboard.KeyCodes.W
+  Phaser.Input.Keyboard.KeyCodes.W
     ])
 
     // Toques
@@ -202,7 +202,7 @@ export default class PlayerController {
     try {
       this.playerColorManager?.destroy?.()
       this.playerColorManager = null
-    } catch {}
+    } catch {} 
   }
 
   // --- Privado ---

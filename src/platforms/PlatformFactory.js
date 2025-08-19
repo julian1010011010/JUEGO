@@ -389,13 +389,13 @@ export default class PlatformFactory {
    * - Meta/tinte.
    * - Evento que mueve la plataforma en sentido opuesto a la velocidad del jugador.
    * - Tintado del jugador mientras solapa con la plataforma.
-   */
+   */  
   applyInversaBehavior(scene, plat) {
     PlatformFactory.applyTypeMeta(plat, 'inversa')
     plat.setTint(0x000000)
 
     // Movimiento opuesto al del jugador (solo mientras se mueve) + WRAP horizontal
-    plat._inversaTween = scene.time.addEvent({
+    plat._inversaTween = scene.time.addEvent({ 
       delay: 16,
       loop: true,
       callback: () => {
