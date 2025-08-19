@@ -5,6 +5,7 @@ import PlayerController from '../player/PlayerController'
 import gameConfig from '../config/gameConfig'
 import LavaParticle from '../effects/LavaParticle'
 import { playLavaDeath } from '../effects/playLavaDeath'
+import UserInfo from '../user/UserInfo'
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -76,6 +77,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Preguntar por nombre y edad si es la primera vez
+    this.userInfo = new UserInfo()
+
+    // Si quieres mostrar el nombre y edad en consola:
+    // console.log(`Usuario: ${this.userInfo.getName()}, Edad: ${this.userInfo.getAge()}`)
+
     const width = this.scale.width
     const height = this.scale.height
 
@@ -356,7 +363,10 @@ export default class GameScene extends Phaser.Scene {
     })
 
     // HUD
-    if (this.scoreText) this.scoreText.textContent = `Puntos: ${this.score} (Récord: ${this.best})`
+    if (this.scoreText) {
+      const nombre = this.userInfo?.getName?.() || ''
+      this.scoreText.textContent = `Puntos: ${this.score} (Récord: ${this.best}) — ${nombre}`
+    }
     if (this.timerEl) {
       const secs = Math.floor((this.time.now - this.startTime) / 1000)
       const mm = String(Math.floor(secs / 60)).padStart(2, '0')
