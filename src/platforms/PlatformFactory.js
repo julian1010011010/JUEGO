@@ -1,5 +1,4 @@
 import Phaser from 'phaser'
-import PlayerColorManager from '../effects/PlayerColorManager'
 
 /**
  * Fabrica de plataformas con rasgos especiales.
@@ -25,12 +24,6 @@ export default class PlatformFactory {
    */
   constructor(scene) {
     this.scene = scene
-    // NUEVO: inicializa el gestor de color del jugador (una sola vez por escena)
-    if (!this.scene.playerColorManager) {
-      this.scene.playerColorManager = new PlayerColorManager(this.scene, this.scene.player ?? null)
-    } else if (!this.scene.playerColorManager.player && this.scene.player) {
-      this.scene.playerColorManager.setPlayer(this.scene.player)
-    }
 
     // NUEVO: cleanup de ciclo de vida (una sola vez por escena)
     PlatformFactory._installSceneCleanup(this.scene)
@@ -54,9 +47,6 @@ export default class PlatformFactory {
         G.footZone?.destroy()
         scene._invertXGlobal = null
       }
-      // Limpia gestor de color del jugador
-      scene.playerColorManager?.destroy?.()
-      scene.playerColorManager = null
 
       // NUEVO: limpiar sistema de estela
       if (scene._trailHandler) {
@@ -95,13 +85,16 @@ export default class PlatformFactory {
     if (scene.playerTrail?.emitter) return
     PlatformFactory.ensurePxTexture(scene)
     const emitter = scene.add.particles(0, 0, 'px', {
-      lifespan: 1600,
-      frequency: 12,
-      quantity: 1,
+  lifespan: 1600,
+  // Emite más seguido y más partículas por tick para una estela más gruesa
+  frequency: 10,
+  quantity: 3,
       follow: scene.player ?? null,
-      scale: { start: 0.9, end: 0 },
-      alpha: { start: 0.8, end: 0 },
-      speed: { min: 0, max: 25 },
+  // Aumenta el tamaño inicial de cada partícula
+  scale: { start: 3.0, end: 0 },
+  alpha: { start: 0.8, end: 0 },
+  // Menor velocidad para que se mantengan más cerca del jugador
+  speed: { min: 0, max: 15 },
       angle: { min: -12, max: 12 },
       tint: 0xffffff,
       blendMode: 'ADD'
@@ -431,11 +424,7 @@ export default class PlatformFactory {
     })
     plat.once('destroy', () => plat._inversaTween?.remove(false))
 
-    // Efecto de tintado del jugador mientras hay solape
-    const mgr = scene.playerColorManager || (scene.playerColorManager = new PlayerColorManager(scene, scene.player ?? null))
-    if (!mgr.player && scene.player) mgr.setPlayer(scene.player)
-    mgr.applyWhileOverlap(plat, 0x000000, 80)
-    plat.once('destroy', () => mgr.stopFor(plat, true))
+  // El tintado del jugador lo maneja centralmente PlayerColorManager en GameScene
   }
 
   /**
@@ -465,7 +454,7 @@ export default class PlatformFactory {
         if (!overlapping) return
 
         const body = player.body
-        if (!body) return
+        if (!body) return 
 
         // Solo rebota si el jugador está cayendo sobre la zona
         if (body.velocity.y > 50 && !plat._bounceCooldown) {
@@ -501,17 +490,12 @@ export default class PlatformFactory {
   applyInvertXBehavior(scene, plat) {
     PlatformFactory.applyTypeMeta(plat, 'invertX')
     plat.setTint(PlatformFactory.PLATFORM_TYPES.invertX.color)
-
+ 
     PlatformFactory.ensurePxTexture(scene)
     const invZone = PlatformFactory.createStayZone(scene, plat, 8)
     plat.invertZone = invZone
 
-    // Tinte al jugador mientras solape con la plataforma (feedback visual)
-    const mgr = scene.playerColorManager || (scene.playerColorManager = new PlayerColorManager(scene, scene.player ?? null))
-    if (!mgr.player && scene.player) mgr.setPlayer(scene.player)
-    mgr.applyWhileOverlap(plat, PlatformFactory.PLATFORM_TYPES.invertX.color, 80)
-    plat.once('destroy', () => mgr.stopFor(plat, true))
-
+  
     // Estado global del efecto inverso (una sola vez por escena)
     const G = (scene._invertXGlobal = scene._invertXGlobal || {
       active: false, owner: null, keys: null, handler: null,

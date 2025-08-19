@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import PlatformFactory from '../platforms/PlatformFactory'
+import PlayerColorManager from '../effects/PlayerColorManager'
 import gameConfig from '../config/gameConfig'
 import LavaParticle from '../effects/LavaParticle'
 
@@ -84,6 +85,13 @@ export default class GameScene extends Phaser.Scene {
   this.player.setCollideWorldBounds(false)
   this.player.body.setSize(24, 28)
 
+  // Gestor de color del jugador: tinto según la plataforma debajo
+  // - Se desacopla del collider y se centraliza aquí con PlayerColorManager
+  this.playerColorManager = this.playerColorManager || new PlayerColorManager(this, this.player)
+  this.playerColorManager.setPlayer(this.player)
+  // Observa el grupo de plataformas; si una plataforma no tiene tint, se limpia
+  this.playerColorManager.applyWhileOverlap(this.platforms, null, 80)
+
     // Contador de metros ascendidos (texto normal estilo pixel art)
     this.metersText = this.add.text(12, 12, '0 m', {
       fontFamily: 'monospace',
@@ -114,12 +122,7 @@ export default class GameScene extends Phaser.Scene {
         this.lastGroundTime = this.time.now
         this.currentPlatform = plat
 
-        // Pintar el personaje del color de la plataforma actual
-        if (plat.typeColor) {
-          this.player.setTint(plat.typeColor)
-        } else {
-          this.player.clearTint()
-        }
+  // El color del jugador ahora lo maneja PlayerColorManager por solape.
 
         // Temporizadas: cuentan 2s si sigues encima
         if (plat.isTimed && !plat._timing) {
@@ -223,6 +226,9 @@ export default class GameScene extends Phaser.Scene {
       this.clearLavaMissiles()
       this.lavaFlames?.destroy()
       this.lavaRocks?.destroy()
+  // Limpia gestor de color del jugador
+  this.playerColorManager?.destroy?.()
+  this.playerColorManager = null
     })
 
     // Inicializa estado de cruce de plataformas
