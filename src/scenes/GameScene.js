@@ -464,7 +464,7 @@ export default class GameScene extends Phaser.Scene {
     const y = this.lava.y - 2
     const speed = this.getLavaMissileSpeed?.() ?? 420
     const size = this.getLavaMissileSize?.() ?? 3
-    const missile = new LavaParticle(this, x, y, { delay: 2000, speed, size })
+const missile = new LavaParticle(this, x, y, { delay: 2000, speed, size });
     this.lavaMissiles.add(missile)
     return missile
   }

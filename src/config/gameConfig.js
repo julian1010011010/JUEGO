@@ -11,7 +11,7 @@ const gameConfig = {
     speed: { min: 100, max: 200 },
 
     // Tamaño visual/collider en píxeles (acepta número o {min,max})
-    size: { min: 4, max: 9 },
+    size: { min: 10, max: 20 },
 
     // Cantidad por tick (obsoleto si usas ratePerMinute)
     // count: 1

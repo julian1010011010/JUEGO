@@ -2,118 +2,106 @@ import Phaser from 'phaser'
 
 export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, opts = {}) {
-    // 1) Garantiza textura 'px' ANTES de crear el sprite
     if (!scene.textures.exists('px')) {
       const g = scene.make.graphics({ x: 0, y: 0, add: false })
-      g.fillStyle(0xffffff, 1)
-      g.fillRect(0, 0, 1, 1)
-      g.generateTexture('px', 1, 1)
-      g.destroy()
+      g.fillStyle(0xffffff, 1); g.fillRect(0, 0, 1, 1)
+      g.generateTexture('px', 1, 1); g.destroy()
     }
 
     super(scene, x, y, 'px')
     scene.add.existing(this)
     scene.physics.add.existing(this)
 
-    // 2) Opciones
     this.delayMs = opts.delay ?? 2000
     this.speed   = opts.speed ?? 420
-    this.useCircleCollider = !!opts.circleCollider
+    this.useCircleCollider =  false;
 
-    // Soporta número o rango {min,max}
-    const sizeOpt = opts.size ?? 8
-    let desiredSize
-    if (typeof sizeOpt === 'number') {
-      desiredSize = Math.max(1, Math.round(sizeOpt))
-    } else {
-      const min = Math.max(1, Math.round(sizeOpt.min ?? 1))
-      const max = Math.max(min, Math.round(sizeOpt.max ?? min))
-      desiredSize = Phaser.Math.Between(min, max)
-    }
-    this.size = desiredSize // NO clamping a 10: respeta config grande (p.ej. 50–100)
+    const s = opts.size ?? 8
+    this.size = typeof s === 'number'
+      ? Math.max(1, Math.round(s))
+      : Phaser.Math.Between(Math.max(1, Math.round(s.min ?? 1)), Math.max(1, Math.round(s.max ?? s.min ?? 1)))
 
-    // Apariencia y físicas
-    this.setDepth(2)
-    this.setOrigin(0.5, 0.5)
+    // Apariencia / físicas
+    this.setDepth(2).setOrigin(0.5, 0.5)
     this.setBlendMode(Phaser.BlendModes.ADD)
     this.setActive(true).setVisible(true)
     this.body.setAllowGravity(false)
     this.setCollideWorldBounds(false)
     this.setVelocity(0, 0)
-    if (this.body) this.body.enable = false // deshabilitado mientras “carga”
+    this.body.enable = false // espera “carga”
 
     // Estado
     this._waiting = true
     this._palette = [0xdc2626, 0xf97316, 0xf59e0b, 0xfbbf24]
     this._colorIdx = 0
 
-    // Talla inicial: visual + collider
+    // Visual + collider (una sola vez aquí)
     this.syncCollider()
 
-    // Parpadeo y timers
+    // FX y timers
     this._blinkEvent = scene.time.addEvent({
-      delay: 80,
-      loop: true,
-      callback: () => this.setTint(this._palette[(this._colorIdx++) % this._palette.length]),
-      callbackScope: this
+      delay: 80, loop: true,
+      callback: () => this.setTint(this._palette[(this._colorIdx++) % this._palette.length])
     })
     this._launchEvent = scene.time.delayedCall(this.delayMs, () => this.launch())
     this._lifeEvent   = scene.time.delayedCall(7000, () => this.destroy())
   }
 
-  preUpdate(time, delta) {
-    super.preUpdate?.(time, delta)
-    // Mientras espera, seguir la cresta de la lava
-    if (this._waiting && this.scene.lava) {
-      this.y = this.scene.lava.y - 2
-      this.setVelocity(0, 0)
-      this.body?.updateFromGameObject?.()
-    }
+preUpdate(time, delta) {
+  super.preUpdate?.(time, delta);
+  if (this._waiting && this.scene.lava) {
+    this.y = this.scene.lava.y - 2;
+    this.setVelocity(0, 0);
+    // ❌ no llamar updateFromGameObject aquí
   }
+}
+debugDrawBodyOnce() {
+  if (!this.body) return;
+  const g = this.scene.add.graphics().setDepth(10000);
+  g.lineStyle(2, 0x3b82f6, 1);
+  g.strokeRect(this.body.left, this.body.top, this.body.width, this.body.height);
+  // auto-destruir a los 600 ms
+  this.scene.time.delayedCall(600, () => g.destroy());
+}
 
   launch() {
-    if (!this.scene || !this.scene.player) {
-      this.destroy()
-      return
-    }
+    if (!this.scene || !this.scene.player) { this.destroy(); return }
     this._waiting = false
     this._blinkEvent?.remove(false)
     this.clearTint()
     this.setAlpha(1)
     this.body.setAllowGravity(false)
-    if (this.body) this.body.enable = true
+    this.body.enable = true
 
-    // Asegura tamaño correcto justo antes de moverse
+    // Asegura collider correcto justo antes de moverse
     this.syncCollider()
 
     const { x: px, y: py } = this.scene.player
-    const dx = px - this.x
-    const dy = py - this.y
+    const dx = px - this.x, dy = py - this.y
     const len = Math.max(1e-3, Math.hypot(dx, dy))
     this.setVelocity((dx / len) * this.speed, (dy / len) * this.speed)
+
+ 
   }
 
-  // ÚNICO: iguala visual y collider y centra en el origen (0.5, 0.5)
-  syncCollider() {
-    if (!this.body) return
+syncCollider() {
+  if (!this.body) return;
 
-    // Visual
-    this.setDisplaySize(this.size, this.size)
+  // Visual = tamaño lógico en pantalla
+  this.setDisplaySize(this.size, this.size);
 
-    // Collider
-    if (this.useCircleCollider) {
-      const r = Math.round(this.displayWidth / 2)
-      // Offset para centrar el círculo en el origen (0.5,0.5)
-      const ox = -r + this.width * this.originX
-      const oy = -r + this.height * this.originY
-      this.body.setCircle(r, ox, oy)
-    } else {
-      const bw = Math.max(1, Math.round(this.displayWidth))
-      const bh = Math.max(1, Math.round(this.displayHeight))
-      this.body.setSize(bw, bh, true) // true = centra en origen
-    }
-    this.body.updateFromGameObject?.()
-  }
+  // Evita doble escalado del body: divide por la escala actual (Arcade multiplica por scaleX/Y)
+  const sx = this.scaleX || 1;
+  const sy = this.scaleY || 1;
+  const bw = Math.max(1, Math.round(this.size / sx));
+  const bh = Math.max(1, Math.round(this.size / sy));
+  this.body.setSize(bw, bh, true);
+
+  // Si activas collider circular en el futuro, usa:
+  // const r = Math.max(1, Math.round((this.size / 2) / sx));
+  // this.body.setCircle(r, -r + this.width * this.originX, -r + this.height * this.originY);
+}
+
 
   destroy(fromScene) {
     this._blinkEvent?.remove(false)
