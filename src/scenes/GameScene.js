@@ -199,8 +199,11 @@ export default class GameScene extends Phaser.Scene {
           this.debugLogMissileOverlap(pb, mb, overlapX, overlapY, missile)
           this.debugDrawMissileOverlap(pb, mb)
         }
-
-        if (overlapX && overlapY) this.gameOver('lava')
+        if (overlapX && overlapY) {
+          // Si hay escudo, consumirlo y rebotar; si no, game over
+          if (this.powerManager?.consumeShieldWithBounce?.('missile', missile)) return
+          this.gameOver('lava')
+        }
       },
       // processCallback: solo evaluar misiles activos y no en espera
       (_player, missile) => !!(missile && missile.active && !missile._waiting),
@@ -426,6 +429,10 @@ export default class GameScene extends Phaser.Scene {
           this.debugLogLavaKill(playerBottom, visibleTop, computedTop, killTop)
           this.debugDrawKillLine(killTop)
         }
+        // Gracia: evita bucle inmediato tras rebotar
+        if (this._lavaShieldGraceUntil && this.time.now <= this._lavaShieldGraceUntil) return
+        // Si hay escudo, consumir y rebotar sobre lava, si no, muerte
+        if (this.powerManager?.consumeShieldWithBounce?.('lava')) return
         this.gameOver('lava')
       }
     }
@@ -439,7 +446,14 @@ export default class GameScene extends Phaser.Scene {
     // Game over por borde inferior de cámara
     const cameraBottom = this.cameras.main.scrollY + height
     const playerBottomEdge = this.player.body ? this.player.body.bottom : this.player.y
-    if (this.canLose && playerBottomEdge >= cameraBottom - 6) this.gameOver('fall')
+    if (this.canLose && playerBottomEdge >= cameraBottom - 6) {
+      // Evita muerte inmediata mientras dura la gracia del rebote por escudo
+      if (this._lavaShieldGraceUntil && this.time.now <= this._lavaShieldGraceUntil) {
+        // No muere, permite que el rebote recupere altura
+      } else {
+        this.gameOver('fall')
+      }
+    }
   }
 
   // relocateDodger ahora vive en PlayerController
