@@ -414,10 +414,16 @@ export default class PlatformFactory {
       }
     })
 
-    // Limpieza
+    // Limpieza + respawn en mismo sitio tras 0.5s (solo si se rompió por contacto)
     plat.once('destroy', () => {
       plat._fragileEv?.remove(false)
       zone.destroy()
+      if (plat._fragileTriggered) {
+        const rx = plat.x, ry = plat.y
+        scene.time.delayedCall(1000, () => {
+          try { this.spawn(rx, ry, 'fragile') } catch {}
+        })
+      }
     })
   }
 
