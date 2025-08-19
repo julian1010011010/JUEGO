@@ -34,6 +34,10 @@ export default class PlatformFactory {
 
     // NUEVO: cleanup de ciclo de vida (una sola vez por escena)
     PlatformFactory._installSceneCleanup(this.scene)
+
+    // NUEVO: sistema de estela (API Phaser 3.60+)
+    PlatformFactory.ensureTrailSystem(this.scene)
+    PlatformFactory.installTrailColorUpdater(this.scene)
   }
 
   // NUEVO: instala limpieza al reiniciar/destruir la escena para evitar fugas de estado
@@ -53,10 +57,125 @@ export default class PlatformFactory {
       // Limpia gestor de color del jugador
       scene.playerColorManager?.destroy?.()
       scene.playerColorManager = null
+
+      // NUEVO: limpiar sistema de estela
+      if (scene._trailHandler) {
+        scene.events.off(Phaser.Scenes.Events.POST_UPDATE, scene._trailHandler)
+        scene._trailHandler = null
+      }
+      scene._trailFootZone?.destroy()
+      scene._trailFootZone = null
+      if (scene.playerTrail?.emitter) {
+        scene.playerTrail.emitter.stop?.()
+        scene.playerTrail.emitter.destroy?.()
+      }
+      scene.playerTrail = null
     }
 
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup)
     scene.events.once(Phaser.Scenes.Events.DESTROY, cleanup)
+  }
+
+  // NUEVO: crea/recrea el sensor de estela bajo los pies si no existe o perdió el body
+  static ensureTrailFoot(scene) {
+    if (scene._trailFootZone && scene._trailFootZone.body) return scene._trailFootZone
+    try { scene._trailFootZone?.destroy?.() } catch {}
+    PlatformFactory.ensurePxTexture(scene)
+    const foot = scene.physics.add.image(0, 0, 'px')
+      .setVisible(false)
+      .setAlpha(0)
+      .setImmovable(true)
+    if (foot.body) foot.body.allowGravity = false
+    scene._trailFootZone = foot
+    return foot
+  }
+
+  // NUEVO: crea el emisor de partículas (estela) con API compatible 3.60+
+  static ensureTrailSystem(scene) {
+    if (scene.playerTrail?.emitter) return
+    PlatformFactory.ensurePxTexture(scene)
+    const emitter = scene.add.particles(0, 0, 'px', {
+      lifespan: 1600,
+      frequency: 12,
+      quantity: 1,
+      follow: scene.player ?? null,
+      scale: { start: 0.9, end: 0 },
+      alpha: { start: 0.8, end: 0 },
+      speed: { min: 0, max: 25 },
+      angle: { min: -12, max: 12 },
+      tint: 0xffffff,
+      blendMode: 'ADD'
+    })
+    // Ajustar profundidad desde el manager si aplica
+    emitter.manager?.setDepth?.((scene.player?.depth ?? 0) - 1)
+    scene.playerTrail = { emitter, color: 0xffffff, following: !!scene.player }
+    if (scene.playerTrail.following && emitter.startFollow) emitter.startFollow(scene.player)
+  }
+
+  // NUEVO: actualiza el color de la estela según la plataforma actual (con sensor robusto)
+  static installTrailColorUpdater(scene) {
+    if (scene._trailHandler) return
+    PlatformFactory.ensurePxTexture(scene)
+    PlatformFactory.ensureTrailFoot(scene)
+
+    scene._trailHandler = () => {
+      const player = scene.player
+      const trail = scene.playerTrail
+      const emitter = trail?.emitter
+      if (!player || !emitter) return
+
+      // Seguir al jugador una sola vez; mantener detrás
+      if (!trail.following && emitter.startFollow) {
+        emitter.startFollow(player)
+        trail.following = true
+      }
+      emitter.manager?.setDepth?.((player.depth ?? 0) - 1)
+
+      const pb = player.body
+      if (!pb) return
+
+      // Asegurar sensor y proteger llamadas a body
+      const foot = PlatformFactory.ensureTrailFoot(scene)
+      const fh = 6
+      foot.setDisplaySize?.(player.displayWidth, fh)
+      if (foot.body?.setSize) {
+        foot.body.setSize(foot.displayWidth, fh, true)
+      } else {
+        foot.setSize?.(player.displayWidth, fh)
+      }
+      const cx = pb.center?.x ?? player.x
+      const bottom = pb.bottom ?? (player.y + player.displayHeight / 2)
+      if (foot.body?.reset) {
+        foot.body.reset(cx, bottom + fh / 2 + 1)
+      } else {
+        foot.setPosition?.(cx, bottom + fh / 2 + 1)
+      }
+
+      // Buscar la plataforma bajo el jugador
+      let tint = null
+      scene.physics.overlap(foot, scene.platforms, (z, other) => {
+        if (tint !== null) return
+        const c = other?.typeColor
+        tint = (typeof c === 'number' && c >= 0) ? c : 0xffffff
+      })
+
+      const newTint = tint ?? 0xffffff
+      if (newTint !== trail.color) {
+        // REEMPLAZO: usar API de ParticleEmitter (3.60+) y fallback seguro
+        try {
+          if (emitter.setParticleTint) {
+            emitter.setParticleTint(newTint)
+          } else if (emitter.setConfig) {
+            emitter.setConfig({ tint: newTint })
+          }
+        } catch (_) {
+          // ignorar si la plataforma/phaser no soporta cambio dinámico de tint
+        }
+        trail.color = newTint
+      }
+    }
+
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, scene._trailHandler)
   }
 
   // NUEVO: utilidades y lógica común -----------------------------------------
