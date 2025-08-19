@@ -10,16 +10,14 @@ import PlayerColorManager from '../effects/PlayerColorManager'
  */
 export default class PlatformFactory {
   static PLATFORM_TYPES = {
-    fragile: { name: 'Frágil', color: 0xff1744, typeChance: 0.10 },
-    timed: { name: 'Temporizada', color: 0xffea00, typeChance: 0.15 },
-    dodger: { name: 'Escurridiza', color: 0x651fff, typeChance: 0.15 },
-    ice: { name: 'Hielo', color: 0xff69b4, typeChance: 0.15 },
-    // NUEVO: Elástica
-    bouncy: { name: 'Elástica', color: 0x00e676, typeChance: 0.12 },
-    // NUEVO: Inversa X (invierte controles horizontales mientras estás encima)
-    invertX: { name: 'Inversa X', color: 0x00bcd4, typeChance: 0.10 },
-    normal: { name: 'Normal', color: null, typeChance: 0.45 },
-    inversa: { name: 'Inversa', color: 0x000000, typeChance: 0.10 }, // negro
+    fragile: { name: 'Frágil', color: 0xE53935, typeChance: 0.10 },   // Rojo (peligro/rompe)
+    timed:   { name: 'Temporizada', color: 0xFFAB00, typeChance: 0.15 }, // Ámbar (contador/tiempo)
+    dodger:  { name: 'Escurridiza', color: 0x3D5AFE, typeChance: 0.15 }, // Índigo (escapa)
+    ice:     { name: 'Hielo', color: 0x18FFFF, typeChance: 0.15 },       // Cian hielo
+    bouncy:  { name: 'Elástica', color: 0x00E676, typeChance: 0.12 },    // Verde resorte
+    invertX: { name: 'Inversa X', color: 0xF50057, typeChance: 0.10 },   // Rosa fuerte (controles invertidos)
+    normal:  { name: 'Normal', color: null, typeChance: 0.45 },
+    inversa: { name: 'Inversa', color: 0x000000, typeChance: 0.10 },     // Negro (opuesto al jugador)
     // Eliminada la plataforma 'moving' por no tener poder
   }
   /**
@@ -161,7 +159,8 @@ export default class PlatformFactory {
       }
       case 'ice': {
         PlatformFactory.applyTypeMeta(plat, 'ice')
-        plat.setTint(0xff69b4) // rosa forzado
+        // Usar color de tipo (quitamos el rosa hardcodeado)
+        plat.setTint(PlatformFactory.PLATFORM_TYPES.ice.color)
         break
       }
       // NUEVO: Elástica (rebota al jugador y es semitransparente)
