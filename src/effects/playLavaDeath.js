@@ -69,30 +69,7 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
     return null
   }
 
-  // Asegurar algunos assets de apoyo
-  const ensurePx = () => {
-    if (!s.textures.exists('px')) {
-      const g = s.make.graphics({ x: 0, y: 0, add: false })
-      g.fillStyle(0xffffff, 1)
-      g.fillRect(0, 0, 1, 1)
-      g.generateTexture('px', 1, 1)
-      g.destroy()
-    }
-  }
-  const ensureBubble = () => {
-    if (!s.textures.exists('bubble')) {
-      const g = s.make.graphics({ x: 0, y: 0, add: false })
-      // sencilla burbuja circular con borde
-      g.fillStyle(0xffffff, 0)
-      g.fillCircle(8, 8, 7)
-      g.lineStyle(2, 0x9ad5ff, 0.95)
-      g.strokeCircle(8, 8, 7)
-      g.fillStyle(0x9ad5ff, 0.35)
-      g.fillCircle(11, 6, 2)
-      g.generateTexture('bubble', 16, 16)
-      g.destroy()
-    }
-  }
+ 
   const ensureThumbArm = () => {
     if (!s.textures.exists('thumb_up_arm')) {
       const g = s.make.graphics({ x: 0, y: 0, add: false })
@@ -113,8 +90,8 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
     }
   }
 
-  ensurePx()
-  if (o.bubbleFX) ensureBubble()
+ 
+  if (o.bubbleFX)  
   ensureThumbArm()
 
   // Deshabilitar input y físicas del player durante la secuencia
@@ -227,42 +204,13 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
 
   // 4) Espera breve y mostrar brazo con pulgar
   const spawnThumb = () => {
-    // Crear el emisor de partículas de lava con MUCHAS más partículas y frecuencia
-    const lavaParticles = s.add.particles(player.x, lineY, 'px', {
-      quantity: 32, // MUCHAS más partículas
-      frequency: 10, // más seguido
-      lifespan: { min: 400, max: 900 },
-      speedY: { min: -120, max: -220 },
-      speedX: { min: -30, max: 30 },
-      scale: { start: 3, end: 1, ease: 'Linear' },
-      tint: [0xf59e0b, 0xfbbf24, 0xf97316, 0xef4444],
-      alpha: { start: 1, end: 0 },
-      blendMode: Phaser.BlendModes.ADD,
-      follow: null
-    });
-    lavaParticles.setDepth((lava?.depth ?? 10) - 2); // detrás de la lava
-    // Piedritas oscuras como la lava principal, también muchas más
-    const rockParticles = s.add.particles(player.x, lineY, 'px', {
-      quantity: 16,
-      frequency: 20,
-      lifespan: { min: 700, max: 1400 },
-      speedY: { min: -180, max: -260 },
-      speedX: { min: -80, max: 80 },
-      gravityY: 600,
-      scale: { start: 2, end: 2 },
-      tint: [0x1f2937, 0x4b5563, 0x111827],
-      alpha: { start: 1, end: 0.9 },
-      rotate: 0,
-      emitting: true
-    });
-    rockParticles.setDepth((lava?.depth ?? 10) - 2);
-    // Mostrar el sprite terminator.png como pulgar
+    // Quitar partículas de lava y piedritas, solo mostrar el sprite terminator.png como pulgar
     const thumb = scene.add.sprite(player.x, lineY, 'terminator').setOrigin(0.5, 1);
     // Escalar al ancho del jugador
-  const pw = player.displayWidth || player.width || 28;
-  const ratio = 2 * (pw / (thumb.width || pw)); // doble de grande
-  thumb.setScale(ratio);
-  thumb.setDepth((lava?.depth ?? 10) - 1); // por detrás de la lava
+    const pw = player.displayWidth || player.width || 28;
+    const ratio = 2 * (pw / (thumb.width || pw)); // doble de grande
+    thumb.setScale(ratio);
+    thumb.setDepth((lava?.depth ?? 10) - 1); // por detrás de la lava
 
     // Centrar la cámara en la posición de muerte del personaje, sin mover fuera de los límites
     try {
@@ -278,18 +226,18 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
     // Animación: aparecer lentamente desde debajo de la lava
     thumb.y = lineY + 40; // inicia oculto bajo la lava
     const chain = [
-  { targets: thumb, y: lineY + 18, duration: 1200, ease: 'Sine.out' }, // sube más despacio y queda parcialmente sumergido
-  { targets: thumb, duration: 1000 }, // se mantiene visible 1 segundo
-  { targets: thumb, alpha: 0, duration: 400, ease: 'Sine.in' } // se desvanece
+      { targets: thumb, y: lineY + 18, duration: 1200, ease: 'Sine.out' }, // sube más despacio y queda parcialmente sumergido
+      { targets: thumb, duration: 1000 }, // se mantiene visible 1 segundo
+      { targets: thumb, alpha: 0, duration: 400, ease: 'Sine.in' } // se desvanece
     ];
 
     if (tl) {
       chain.forEach(c => tl.add(c))
       // Al terminar el brazo, limpiamos
-      tl.add({ targets: arm, duration: 1, onComplete: () => arm.destroy() })
+      tl.add({ targets: thumb, duration: 1, onComplete: () => thumb.destroy() })
     } else {
       // cadena manual
-      return runChain(chain).then(() => { try { arm.destroy() } catch {} })
+      return runChain(chain).then(() => { try { thumb.destroy() } catch {} })
     }
   }
 
@@ -349,19 +297,3 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
     player._lavaDeathPlaying = false
   })
 }
-
-// Ejemplo de uso:
-// async function onHitLava() {
-//   await playLavaDeath(this, this.player, this.lava, {
-//     jumpVelocity: -380,
-//     hopDuration: 300,
-//     sinkDuration: 1200,
-//     thumbShowDelay: 250,
-//     thumbRise: 24,
-//     thumbDuration: 900,
-//     cameraZoom: 1.1,
-//     useMask: true,
-//     bubbleFX: true,
-//   })
-//   // this.scene.start('GameOverScene')
-// }

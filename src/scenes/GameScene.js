@@ -613,10 +613,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   gameOver(cause) {
-     if (this._ended) return
-    // Parar spawner y limpiar misiles restantes
+    // Evita repeticiones de animación y lógica de muerte
+    if (this._ended || this._playedLavaAnim) return
     this._ended = true
-    this.physics.pause()
+
+    // Parar spawner y limpiar misiles restantes
     this._lavaMissileTimer?.remove(false)
     this._lavaMissileTimer = null
     // Limpieza segura del grupo de misiles (evita acceder a children indefinido)
@@ -638,12 +639,11 @@ export default class GameScene extends Phaser.Scene {
         playLavaDeath(this, this.player, this.lava, {
           sinkDuration: 1200,
           thumbDuration: 900,
-          cameraZoom: 1.1,
+          cameraZoom: 2.1,
           useMask: true,
-          bubbleFX: true
+          bubbleFX: false
         }).then(showOverlay)
       } else {
-        // Para misil, solo mostrar overlay directo (o se podría crear otra cinematica futura)
         showOverlay()
       }
     } else {
