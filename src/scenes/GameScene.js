@@ -4,6 +4,7 @@ import PowerManager from '../powers/PowerManager'
 import PlayerController from '../player/PlayerController'
 import gameConfig from '../config/gameConfig'
 import LavaParticle from '../effects/LavaParticle'
+import Animation from '../effects/animation'
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -202,7 +203,7 @@ export default class GameScene extends Phaser.Scene {
         if (overlapX && overlapY) {
           // Si hay escudo, consumirlo y rebotar; si no, game over
           if (this.powerManager?.consumeShieldWithBounce?.('missile', missile)) return
-          this.gameOver('lava')
+          this.gameOver('missile')
         }
       },
       // processCallback: solo evaluar misiles activos y no en espera
@@ -628,63 +629,19 @@ export default class GameScene extends Phaser.Scene {
       if (this.overlay) this.overlay.style.display = 'flex'
     }
 
-    if (cause === 'lava' && this.hasAscended && !this._playedLavaAnim) {
+  // Ejecuta la animación de impacto para lava o misil antes de mostrar overlay
+  if ((cause === 'lava' || cause === 'missile') && !this._playedLavaAnim) {
       this._playedLavaAnim = true
-      if (this.player) this.player.setVisible(false)
-      this.playTerminatorThumb()
-      this.time.delayedCall(1200, showOverlay)
+      const anim = this._impactAnim || new Animation(this)
+      this._impactAnim = anim
+      // Reproducir secuencia y al finalizar, mostrar overlay
+      anim.play(this.player).then(showOverlay)
     } else {
       showOverlay()
     }
   }
 
-  playTerminatorThumb() {
-    const width = this.scale.width
-    if (!this.lava) return
-    const hand = this.add.image(this.player ? this.player.x : width / 2, this.lava.y - 6, 'thumb_up')
-      .setOrigin(0.5, 1)
-      .setDepth(2)
-      .setAngle(-10)
-      .setAlpha(1)
-      .setScale(1)
-
-    if (this.tweens.createTimeline) {
-      const tl = this.tweens.createTimeline()
-      tl.add({ targets: hand, y: hand.y - 6, duration: 160, ease: 'Sine.out' })
-      tl.add({ targets: hand, y: hand.y + 46, angle: -25, alpha: 0.85, duration: 520, ease: 'Sine.in' })
-      tl.add({ targets: hand, y: hand.y + 62, angle: -35, alpha: 0, duration: 420, ease: 'Quad.in', onComplete: () => hand.destroy() })
-      tl.play()
-    } else {
-      // Fallback encadenado
-      this.tweens.add({
-        targets: hand,
-        y: hand.y - 6,
-        duration: 160,
-        ease: 'Sine.out',
-        onComplete: () => {
-          this.tweens.add({
-            targets: hand,
-            y: hand.y + 46,
-            angle: -25,
-            alpha: 0.85,
-            duration: 520,
-            ease: 'Sine.in',
-            onComplete: () => {
-              this.tweens.add({
-                targets: hand,
-                y: hand.y + 62,
-                angle: -35,
-                alpha: 0,
-                duration: 420,
-                ease: 'Quad.in',
-                onComplete: () => hand.destroy()
-              })
-            }
-          })
-        }
-      })
-    }
-  }
+ 
 
   createTextures() {
     const g = this.make.graphics({ x: 0, y: 0, add: false })

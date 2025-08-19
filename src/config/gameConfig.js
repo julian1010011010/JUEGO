@@ -50,7 +50,7 @@ const gameConfig = {
   powers: {
     enabled: true,
     // Probabilidad de generar un poder por plataforma creada (0–1)
-    spawnChancePerPlatform: 1.03,
+    spawnChancePerPlatform: 0.03,
     // Ventana de aviso antes de expirar el poder (ms): parpadeo rápido
     warningMs: 500,
     // Pesos de aparicion por tipo
@@ -59,7 +59,7 @@ const gameConfig = {
     noGravity: {
       durationMs: 5000, // duración del poder activo
       floatSpeed: 500, // velocidad de ascenso automática mientras dura
-      lavaRiseBoost: 4.0, // factor extra para que la lava suba más rápido durante el poder
+      lavaRiseBoost: 5.0, // factor extra para que la lava suba más rápido durante el poder
     },
     // Config de congelar lava
     freezeLava: {
