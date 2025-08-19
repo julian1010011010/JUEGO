@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import PlatformFactory from '../platforms/PlatformFactory'
-import PlayerColorManager from '../effects/PlayerColorManager'
+import PlayerController from '../player/PlayerController'
 import gameConfig from '../config/gameConfig'
 import LavaParticle from '../effects/LavaParticle'
 
@@ -9,7 +9,8 @@ export default class GameScene extends Phaser.Scene {
     super('game')
 
     // Entidades y estado base
-    this.player = null
+  this.player = null
+  this.playerCtrl = null
     this.platforms = null
     this.cursors = null
     this.score = 0
@@ -79,18 +80,9 @@ export default class GameScene extends Phaser.Scene {
   // Plataforma base bajo el jugador (siempre normal)
   this.platformFactory.spawn(width / 2, height - 60, 'normal')
 
-  // Jugador
-  this.player = this.physics.add.sprite(width / 2, height - 120, 'player')
-  this.player.setBounce(0.05)
-  this.player.setCollideWorldBounds(false)
-  this.player.body.setSize(24, 28)
-
-  // Gestor de color del jugador: tinto según la plataforma debajo
-  // - Se desacopla del collider y se centraliza aquí con PlayerColorManager
-  this.playerColorManager = this.playerColorManager || new PlayerColorManager(this, this.player)
-  this.playerColorManager.setPlayer(this.player)
-  // Observa el grupo de plataformas; si una plataforma no tiene tint, se limpia
-  this.playerColorManager.applyWhileOverlap(this.platforms, null, 80)
+  // Jugador y controlador
+  this.playerCtrl = new PlayerController(this)
+  this.player = this.playerCtrl.create(width / 2, height - 120)
 
     // Contador de metros ascendidos (texto normal estilo pixel art)
     this.metersText = this.add.text(12, 12, '0 m', {
@@ -112,49 +104,7 @@ export default class GameScene extends Phaser.Scene {
     this.metersText.setScrollFactor(0, 0)
     this.metersText.setDepth(1000)
 
-    // Colisiones jugador <-> plataformas
-    this.physics.add.collider(this.player, this.platforms, (player, plat) => {
-      if (!plat || !plat.body) return
-      const pb = player.body
-      const sb = plat.body
-      const landing = pb.velocity.y >= 0 && pb.bottom <= sb.top + 8
-      if (landing || pb.touching.down || pb.blocked.down) {
-        this.lastGroundTime = this.time.now
-        this.currentPlatform = plat
-
-  // El color del jugador ahora lo maneja PlayerColorManager por solape.
-
-        // Temporizadas: cuentan 2s si sigues encima
-        if (plat.isTimed && !plat._timing) {
-          plat._timing = true
-          plat._timer = this.time.delayedCall(2000, () => {
-            if (plat && plat.active && this.currentPlatform === plat) {
-              this.tweens.killTweensOf(plat)
-              plat.destroy()
-            }
-            if (plat) {
-              plat._timing = false
-              plat._timer = null
-            }
-          })
-        }
-
-        // Hielo: activa ventana de resbalón
-        if (plat.isIce) this._onIceUntil = this.time.now + 350
-      }
-    })
-
-    // Entrada: cursores + Space y táctil
-    this.cursors = this.input.keyboard.createCursorKeys()
-    this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
-    this.jumpKeyUp = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP)
-    this.jumpKeyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)
-    this.input.keyboard.addCapture([
-      Phaser.Input.Keyboard.KeyCodes.SPACE,
-      Phaser.Input.Keyboard.KeyCodes.UP,
-      Phaser.Input.Keyboard.KeyCodes.W
-    ])
-    this.setupTouchControls()
+  // La colisión e input del jugador los maneja PlayerController
 
     // Cámara: solo sube (sin seguir hacia abajo)
     this.cameras.main.stopFollow()
@@ -226,9 +176,9 @@ export default class GameScene extends Phaser.Scene {
       this.clearLavaMissiles()
       this.lavaFlames?.destroy()
       this.lavaRocks?.destroy()
-  // Limpia gestor de color del jugador
-  this.playerColorManager?.destroy?.()
-  this.playerColorManager = null
+  // Limpieza del controlador de jugador
+  this.playerCtrl?.destroy?.()
+  this.playerCtrl = null
     })
 
     // Inicializa estado de cruce de plataformas
@@ -279,69 +229,11 @@ export default class GameScene extends Phaser.Scene {
       g.generateTexture('volcano_bg', w, h);
       this.volcanoSprite.setTexture('volcano_bg');
     }
-    const width = this.scale.width
-    const height = this.scale.height
+  const width = this.scale.width
+  const height = this.scale.height
 
-    const speed = 220     
-    const onIce = this.time.now <= this._onIceUntil
-
-    // Movimiento horizontal (con efecto hielo)
-    if (onIce) {
-      this.player.setDragX(60)
-      let vx = this.player.body.velocity.x
-      if (this.cursors.left.isDown || this.leftPressed) vx = Phaser.Math.Clamp(vx - 24, -speed, speed)
-      else if (this.cursors.right.isDown || this.rightPressed) vx = Phaser.Math.Clamp(vx + 24, -speed, speed)
-      this.player.setVelocityX(vx)
-      this.player.setFlipX(vx < 0)
-    } else {
-      this.player.setDragX(0)
-      if (this.cursors.left.isDown || this.leftPressed) {
-        this.player.setVelocityX(-speed)
-        this.player.setFlipX(true)
-      } else if (this.cursors.right.isDown || this.rightPressed) {
-        this.player.setVelocityX(speed)
-        this.player.setFlipX(false)
-      } else {
-        this.player.setVelocityX(0)
-      }
-    }
-
-    // Salto manual con coyote
-    const grounded = this.player.body.touching.down || this.player.body.blocked.down
-    const canCoyote = this.time.now - this.lastGroundTime <= 200
-    const jumpPressed = Phaser.Input.Keyboard.JustDown(this.jumpKey) ||
-                       Phaser.Input.Keyboard.JustDown(this.jumpKeyUp) ||
-                       Phaser.Input.Keyboard.JustDown(this.jumpKeyW) ||
-                       Phaser.Input.Keyboard.JustDown(this.cursors.up)
-    if (jumpPressed && (grounded || canCoyote)) {
-      // Reubicar la mejor plataforma escurridiza si va a ser alcanzada
-      const candidates = this.platforms.getChildren().filter(p => p && p.isDodger)
-      let best = null
-      let bestDy = Infinity
-      for (const p of candidates) {
-        const dx = Math.abs(p.x - this.player.x)
-        const dy = p.y - this.player.y
-        const canDodge = dx <= this.dodgerDx && dy >= this.dodgerMinDy && dy <= this.dodgerMaxDy
-        const cooldownOk = !p._lastDodgeTime || (this.time.now - p._lastDodgeTime) > this.dodgerCooldown
-        if (canDodge && cooldownOk && dy < bestDy) { best = p; bestDy = dy }
-      }
-      if (best) this.relocateDodger(best)
-
-      this.player.setVelocityY(-520)
-
-      // Rompe frágil al despegar
-      if (this.currentPlatform && this.currentPlatform.isFragile && !this.currentPlatform._broken) {
-        this.currentPlatform._broken = true
-        this.time.delayedCall(60, () => {
-          if (this.currentPlatform && this.currentPlatform.active) this.currentPlatform.destroy()
-        })
-      }
-      this.currentPlatform = null
-    }
-
-    // Wrap horizontal
-    if (this.player.x < -16) this.player.x = width + 16
-    if (this.player.x > width + 16) this.player.x = -16
+  // Delega la lógica de movimiento/salto/wrap al controlador
+  this.playerCtrl?.update?.()
 
     // Generación y limpieza de plataformas
     const camY = this.cameras.main.worldView.y
@@ -364,16 +256,7 @@ export default class GameScene extends Phaser.Scene {
       this.platformFactory.spawn(newX, newY, this.pickPlatformType())
     }
 
-    // Reubicación escurridizas al aproximarse en ascenso
-    if (this.player.body.velocity.y < -50) {
-      this.platforms.children.iterate(plat => {
-        if (!plat || !plat.isDodger) return
-        const dx = Math.abs(plat.x - this.player.x)
-        const dy = plat.y - this.player.y
-        const cooldownOk = !plat._lastDodgeTime || (this.time.now - plat._lastDodgeTime) > this.dodgerCooldown
-        if (dx <= this.dodgerDx && dy >= this.dodgerMinDy && dy <= this.dodgerMaxDy && cooldownOk) this.relocateDodger(plat)
-      })
-    }
+  // La reubicación de escurridizas durante el ascenso la gestiona el controlador
 
     // Scoring por cruce de plataformas
     this.platforms.children.iterate(plat => {
@@ -443,19 +326,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.canLose && playerBottomEdge >= cameraBottom - 6) this.gameOver('fall')
   }
 
-  relocateDodger(plat) {
-    const width = this.scale.width
-    let newX
-    let attempts = 0
-    do {
-      newX = Phaser.Math.Between(60, width - 60)
-      attempts++
-    } while (Math.abs(newX - plat.x) < 100 && attempts < 8)
-    plat.x = newX
-    if (plat.body && plat.body.updateFromGameObject) plat.body.updateFromGameObject()
-    plat._lastDodgeTime = this.time.now
-    this.tweens.add({ targets: plat, alpha: { from: 0.4, to: 1 }, duration: 150, ease: 'Quad.out' })
-  }
+  // relocateDodger ahora vive en PlayerController
 
   getTopPlatformY() {
     let minY = Infinity

@@ -430,7 +430,7 @@ export default class PlatformFactory {
   /**
    * NUEVO: Aplica comportamiento para plataforma 'bouncy' (elástica).
    * - Semitransparente.
-   * - Zona superior que detecta caída del jugador y lo hace rebotar.
+   * - Zona superior que detecta caída del jugador y lo hace rebotar. 
    * - Cooldown corto para evitar rebotes múltiples.
    * - Limpieza de timers y zona al destruirse.
    */
