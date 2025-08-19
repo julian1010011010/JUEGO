@@ -35,9 +35,9 @@ const gameConfig = {
   avoidBaseXRadius: 80,
     weights: {
       normal: 10,
-      fragile: 10,
-      timed: 10,
-      ice: 90 ,
+      fragile: 90,
+      timed: 90 ,
+      ice: 10 ,
       dodger: 10,
       invertX: 10, bouncy: 10,
       inversa: 10

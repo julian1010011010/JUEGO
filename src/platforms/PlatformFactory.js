@@ -10,14 +10,14 @@ import gameConfig from '../config/gameConfig'
  */
 export default class PlatformFactory {
   static PLATFORM_TYPES = {
-    fragile: { name: 'Frágil', color: 0xE53935, typeChance: 0.10 },   // Rojo (peligro/rompe)
-    timed:   { name: 'Temporizada', color: 0xFFAB00, typeChance: 0.15 }, // Ámbar (contador/tiempo)
-    dodger:  { name: 'Escurridiza', color: 0x3D5AFE, typeChance: 0.15 }, // Índigo (escapa)
-    ice:     { name: 'Hielo', color: 0x18FFFF, typeChance: 0.15 },       // Cian hielo
-    bouncy:  { name: 'Elástica', color: 0x00E676, typeChance: 0.12 },    // Verde resorte
-    invertX: { name: 'Inversa X', color: 0xF50057, typeChance: 0.10 },   // Rosa fuerte (controles invertidos)
-    normal:  { name: 'Normal', color: 0x00F59E, typeChance: 0.45 },
-    inversa: { name: 'Inversa', color: 0x000000, typeChance: 0.10 },     // Negro (opuesto al jugador)
+  fragile: { name: 'Frágil', color: [255, 23, 68], typeChance: 0.10 },      // Rojo vivo (peligro/rompe)
+  timed:   { name: 'Temporizada', color: [255, 196, 0], typeChance: 0.15 }, // Ámbar vivo (contador/tiempo)
+  dodger:  { name: 'Escurridiza', color: [41, 121, 255], typeChance: 0.15 }, // Azul eléctrico (escapa)
+  ice:     { name: 'Hielo', color: [0, 229, 255], typeChance: 0.15 },        // Cian brillante (hielo)
+  bouncy:  { name: 'Elástica', color: [0, 230, 118], typeChance: 0.12 },     // Verde vivo (resorte)
+  invertX: { name: 'Inversa X', color: [255, 64, 129], typeChance: 0.10 },   // Rosa fuerte vivo (controles invertidos)
+  normal:  { name: 'Normal', color: [29, 233, 182], typeChance: 0.45 },      // Turquesa vivo (neutro)
+  inversa: { name: 'Inversa', color: [124, 77, 255], typeChance: 0.10 },     // Violeta vivo (opuesto al jugador)
     // Eliminada la plataforma 'moving' por no tener poder
   }
   /**
@@ -32,6 +32,58 @@ export default class PlatformFactory {
     // NUEVO: sistema de estela (API Phaser 3.60+)
     PlatformFactory.ensureTrailSystem(this.scene)
     PlatformFactory.installTrailColorUpdater(this.scene)
+  }
+
+  // NUEVO: acepta colores en múltiples formatos y devuelve un número 0xRRGGBB
+  // Soporta: número (0xRRGGBB), array [r,g,b], objeto {r,g,b}, string "#RRGGBB" o "rgb(r,g,b)"
+  static resolveColor(input) {
+    try {
+      if (input == null) return null
+      // Número ya válido
+      if (typeof input === 'number' && isFinite(input)) return input >>> 0
+      // Array [r,g,b]
+      if (Array.isArray(input) && input.length >= 3) {
+        const [r, g, b] = input
+        return Phaser.Display.Color.GetColor(
+          Math.max(0, Math.min(255, r|0)),
+          Math.max(0, Math.min(255, g|0)),
+          Math.max(0, Math.min(255, b|0))
+        )
+      }
+      // Objeto {r,g,b} o {red,green,blue}
+      if (typeof input === 'object') {
+        const r = input.r ?? input.red
+        const g = input.g ?? input.green
+        const b = input.b ?? input.blue
+        if ([r,g,b].every(v => typeof v === 'number')) {
+          return Phaser.Display.Color.GetColor(
+            Math.max(0, Math.min(255, r|0)),
+            Math.max(0, Math.min(255, g|0)),
+            Math.max(0, Math.min(255, b|0))
+          )
+        }
+      }
+      // String
+      if (typeof input === 'string') {
+        const s = input.trim()
+        // rgb(r, g, b)
+        const m = s.match(/^rgb\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i)
+        if (m) {
+          const r = parseInt(m[1], 10), g = parseInt(m[2], 10), b = parseInt(m[3], 10)
+          return Phaser.Display.Color.GetColor(
+            Math.max(0, Math.min(255, r)),
+            Math.max(0, Math.min(255, g)),
+            Math.max(0, Math.min(255, b))
+          )
+        }
+        // #RRGGBB o RRGGBB
+        const h = s.replace(/^#/, '')
+        if (/^[0-9a-fA-F]{6}$/.test(h)) {
+          return parseInt(h, 16)
+        }
+      }
+    } catch (_) { /* ignore */ }
+    return null
   }
 
   // NUEVO: instala limpieza al reiniciar/destruir la escena para evitar fugas de estado
@@ -214,7 +266,8 @@ export default class PlatformFactory {
   static applyTypeMeta(plat, typeKey) {
     const t = PlatformFactory.PLATFORM_TYPES[typeKey] || PlatformFactory.PLATFORM_TYPES.normal
     plat.typeName = t.name
-    plat.typeColor = t.color
+  plat.typeColorRaw = t.color
+  plat.typeColor = PlatformFactory.resolveColor(t.color)
     plat.typeChance = t.typeChance
     return t
   }
@@ -291,13 +344,13 @@ export default class PlatformFactory {
       }
       case 'dodger': {
         PlatformFactory.applyTypeMeta(plat, 'dodger')
-        plat.setTint(PlatformFactory.PLATFORM_TYPES.dodger.color)
+  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
         break
       }
       case 'ice': {
         PlatformFactory.applyTypeMeta(plat, 'ice')
-        // Usar color de tipo (quitamos el rosa hardcodeado)
-        plat.setTint(PlatformFactory.PLATFORM_TYPES.ice.color)
+  // Usar color resuelto de tipo
+  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
         break
       }
       // NUEVO: Elástica (rebota al jugador y es semitransparente)
@@ -316,11 +369,8 @@ export default class PlatformFactory {
       }
       default: {
         const meta = PlatformFactory.applyTypeMeta(plat, 'normal')
-        if (typeof meta.color === 'number' && meta.color >= 0) {
-          plat.setTint(meta.color)
-        } else {
-          plat.clearTint()
-        }
+  const resolved = PlatformFactory.resolveColor(meta.color)
+  if (typeof resolved === 'number') plat.setTint(resolved); else plat.clearTint()
       }
     }
   }
@@ -332,10 +382,10 @@ export default class PlatformFactory {
    * - Se rompe 0.5s después de que el jugador se apoye encima.
    */
   applyFragileBehavior(scene, plat) {
-    PlatformFactory.applyTypeMeta(plat, 'fragile')
+  PlatformFactory.applyTypeMeta(plat, 'fragile')
     scene.tweens.killTweensOf(plat)
     plat.setAlpha(1)
-    plat.setTint(PlatformFactory.PLATFORM_TYPES.fragile.color)
+  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
 
     // Sensor superior y rotura tras 0.5s de contacto
     PlatformFactory.ensurePxTexture(scene)
@@ -380,7 +430,7 @@ export default class PlatformFactory {
    */
   applyTimedBehavior(scene, plat) {
     PlatformFactory.applyTypeMeta(plat, 'timed')
-    plat.setTint(PlatformFactory.PLATFORM_TYPES.timed.color)
+  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
 
     // Parpadeo inicial (1s)
     PlatformFactory.blinkFor(scene, plat, 500)
@@ -429,7 +479,7 @@ export default class PlatformFactory {
    */  
   applyInversaBehavior(scene, plat) {
     PlatformFactory.applyTypeMeta(plat, 'inversa')
-    plat.setTint(0x000000)
+  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
 
     // Movimiento opuesto al del jugador (solo mientras se mueve) + WRAP horizontal
     plat._inversaTween = scene.time.addEvent({ 
@@ -473,7 +523,7 @@ export default class PlatformFactory {
    */
   applyBouncyBehavior(scene, plat) {
     PlatformFactory.applyTypeMeta(plat, 'bouncy')
-    plat.setTint(PlatformFactory.PLATFORM_TYPES.bouncy.color)
+  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
     plat.setAlpha(0.6)
 
     PlatformFactory.ensurePxTexture(scene)
@@ -526,7 +576,7 @@ export default class PlatformFactory {
    */
   applyInvertXBehavior(scene, plat) {
     PlatformFactory.applyTypeMeta(plat, 'invertX')
-    plat.setTint(PlatformFactory.PLATFORM_TYPES.invertX.color)
+  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
  
     PlatformFactory.ensurePxTexture(scene)
     const invZone = PlatformFactory.createStayZone(scene, plat, 8)
