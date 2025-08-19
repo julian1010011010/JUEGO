@@ -37,29 +37,42 @@ export default class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    this.createTextures()
+  this.createTextures()
+  // Generar textura pixel-art de volcán
+  const g = this.make.graphics({ x: 0, y: 0, add: false });
+  const w = 128, h = 128;
+  // Fondo
+  g.fillStyle(0x181825, 1);
+  g.fillRect(0, 0, w, h);
+  // Volcán base pixel-art
+  g.fillStyle(0x3b2f1e, 1);
+  g.fillRect(32, 96, 64, 32);
+  g.fillStyle(0x6b4226, 1);
+  g.fillRect(40, 64, 48, 32);
+  // Cráter
+  g.fillStyle(0x222222, 1);
+  g.fillRect(56, 60, 16, 8);
+  // Lava en el cráter
+  g.fillStyle(0xf59e0b, 1);
+  g.fillRect(60, 62, 8, 4);
+  // Lava cayendo (animada en update)
+  g.fillStyle(0xf59e0b, 1);
+  g.fillRect(64, 68, 4, 16);
+  // Humo (animado en update)
+  g.fillStyle(0xcccccc, 0.5);
+  g.fillRect(60, 52, 8, 8);
+  g.generateTexture('volcano_bg', w, h);
   }
 
   create() {
     const width = this.scale.width
     const height = this.scale.height
 
-    // Fondo gradiente
-    const g = this.add.graphics()
-    const top = 0x0f1020
-    const bottom = 0x0a0a14
-    const steps = 10
-    for (let i = 0; i < steps; i++) {
-      const color = Phaser.Display.Color.Interpolate.ColorWithColor(
-        Phaser.Display.Color.ValueToColor(top),
-        Phaser.Display.Color.ValueToColor(bottom),
-        steps - 1,
-        i
-      )
-      const hex = Phaser.Display.Color.GetColor(color.r, color.g, color.b)
-      g.fillStyle(hex, 1)
-      g.fillRect(0, (height / steps) * i, width, height / steps)
-    }
+  // Fondo volcán pixel-art
+  this.volcanoSprite = this.add.image(width/2, height-64, 'volcano_bg').setOrigin(0.5,1).setDepth(0);
+  // Variables para animación
+  this._volcanoLavaY = 68;
+  this._volcanoHumoAlpha = 0.5;
 
     // Grupo de plataformas y fábrica
     this.platforms = this.physics.add.staticGroup()
@@ -160,6 +173,37 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update() {
+    // Animar lava cayendo y humo del volcán
+    if (this.volcanoSprite && this.textures.exists('volcano_bg')) {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const w = 128, h = 128;
+      // Fondo
+      g.fillStyle(0x181825, 1);
+      g.fillRect(0, 0, w, h);
+      // Volcán base pixel-art
+      g.fillStyle(0x3b2f1e, 1);
+      g.fillRect(32, 96, 64, 32);
+      g.fillStyle(0x6b4226, 1);
+      g.fillRect(40, 64, 48, 32);
+      // Cráter
+      g.fillStyle(0x222222, 1);
+      g.fillRect(56, 60, 16, 8);
+      // Lava en el cráter
+      g.fillStyle(0xf59e0b, 1);
+      g.fillRect(60, 62, 8, 4);
+      // Lava cayendo (animada)
+      this._volcanoLavaY += Phaser.Math.Between(1,3);
+      if (this._volcanoLavaY > 84) this._volcanoLavaY = 68;
+      g.fillStyle(0xf59e0b, 1);
+      g.fillRect(64, this._volcanoLavaY, 4, 16);
+      // Humo (animado)
+      this._volcanoHumoAlpha += Phaser.Math.FloatBetween(-0.01,0.01);
+      this._volcanoHumoAlpha = Phaser.Math.Clamp(this._volcanoHumoAlpha, 0.35, 0.6);
+      g.fillStyle(0xcccccc, this._volcanoHumoAlpha);
+      g.fillRect(60, 52, 8, 8);
+      g.generateTexture('volcano_bg', w, h);
+      this.volcanoSprite.setTexture('volcano_bg');
+    }
     const width = this.scale.width
     const height = this.scale.height
 
