@@ -528,19 +528,24 @@ export default class GameScene extends Phaser.Scene {
     return 420
   }
 
-  // NUEVO: lee el tamaño desde config (clamp 4–10)
-  getLavaMissileSize() {
-    const clampMin = 4, clampMax = 10
-    const cfg = gameConfig?.lavaMissiles?.size
-    if (typeof cfg === 'number') return Phaser.Math.Clamp(Math.round(cfg), clampMin, clampMax)
-    if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
-      const min = Phaser.Math.Clamp(Math.round(cfg.min ?? clampMin), clampMin, clampMax)
-      const max = Phaser.Math.Clamp(Math.round(cfg.max ?? min), min, clampMax)
-      return Phaser.Math.Between(min, max)
-    }
-    return clampMin
-  }
+ 
+// Respeta número o rango {min,max} desde gameConfig, sin capado 4–10
+getLavaMissileSize() {
+  const cfg = gameConfig?.lavaMissiles?.size
+  // Límite de seguridad opcional (evita tamaños absurdos)
+  const HARD_MAX = 512
 
+  if (typeof cfg === 'number') {
+    return Math.min(HARD_MAX, Math.max(1, Math.round(cfg)))
+  }
+  if (cfg && (typeof cfg.min === 'number' || typeof cfg.max === 'number')) {
+    const min = Math.max(1, Math.round(cfg.min ?? 1))
+    const max = Math.max(min, Math.round(cfg.max ?? min))
+    return Phaser.Math.Between(min, Math.min(max, HARD_MAX))
+  }
+  return 4 // fallback razonable si no hay config
+}
+Tip
   // NUEVO: lee la cantidad por tick desde config (número fijo o rango)
   getLavaMissileCount() {
     const cfg = gameConfig?.lavaMissiles?.count

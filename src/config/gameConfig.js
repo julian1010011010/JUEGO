@@ -1,17 +1,20 @@
 const gameConfig = {
   // Frecuencia de misiles de lava (en milisegundos)
   lavaMissiles: {
-    // Puedes usar un valor fijo en segundos:
-    intervalSeconds: 1.5,
-    // También puedes dejar intervalMs como número fijo en ms o como rango {min,max}
-    // intervalMs: 1500,
+    // NUEVO: tasa de generación por minuto (si se define, ignora intervalSeconds/intervalMs)
+    ratePerMinute: 60,
+
+    // Puedes seguir usando intervalSeconds como respaldo si no usas ratePerMinute
+    // intervalSeconds: 1.5,
 
     // Velocidad de la partícula en px/s (acepta número o {min,max})
     speed: { min: 100, max: 200 },
-    // Tamaño visual/collider en píxeles (rango 4–10)
-    size: { min: 4, max: 10 },
-    // Cantidad de partículas por tick (número fijo)
-    count: 1
+
+    // Tamaño visual/collider en píxeles (acepta número o {min,max})
+    size: { min: 4, max: 9 },
+
+    // Cantidad por tick (obsoleto si usas ratePerMinute)
+    // count: 1
   },
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)
@@ -38,4 +41,3 @@ const gameConfig = {
 }
 
 export default gameConfig
- 
