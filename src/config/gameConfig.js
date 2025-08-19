@@ -28,7 +28,7 @@ const gameConfig = {
       timed: 10,
       ice: 10,
       dodger: 10,
-      invertX: 90, bouncy: 10,
+      invertX: 10, bouncy: 10,
       inversa: 10
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     }
@@ -41,7 +41,7 @@ const gameConfig = {
 
   // NUEVO: flags de depuración (posiciones y AABBs en colisiones)
   debug: {
-    collisions: true // ponlo en false para desactivar logs/dibujo
+    collisions: false // ponlo en false para desactivar logs/dibujo
   }
 }
 
