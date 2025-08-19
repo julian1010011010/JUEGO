@@ -39,9 +39,9 @@ const gameConfig = {
       timed: 10 ,
       ice: 10 ,
       dodger: 10,
-      invertX: 0.5,
-      bouncy: 90, 
-      inversa: 10
+      invertX: 10,
+      bouncy: 10, 
+      inversa: 90
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     }
   },

@@ -499,7 +499,7 @@ export default class PlatformFactory {
           plat.x -= Math.sign(body.velocity.x) * speed
         }
 
-        // NUEVO: screen wrap horizontal (como el personaje)
+  // NUEVO: screen wrap horizontal (como el personaje)
         const bounds = scene.physics?.world?.bounds
         const cam = scene.cameras?.main
         const left = bounds?.left ?? cam?.worldView?.x ?? 0
@@ -513,8 +513,6 @@ export default class PlatformFactory {
         }
 
   plat.refreshBody()
-  // Mantener fantasmas de borde sincronizados
-  try { this.updateEdgeGhosts(plat) } catch {}
       }
     })
     plat.once('destroy', () => plat._inversaTween?.remove(false))
@@ -787,8 +785,16 @@ export default class PlatformFactory {
             pickup.y = target.y - target.displayHeight / 2 - 22
             pickup.refreshBody?.()
           }
-          // Mantener fantasmas de borde sincronizados
-          try { this.updateEdgeGhosts(target) } catch {}
+          // Wrap horizontal limpio para plataformas móviles
+          const width = scene.scale?.width ?? 800
+          const halfW2 = (target.displayWidth ?? target.width ?? 0) * 0.5
+          if (target.x < -halfW2) {
+            target.x = width + halfW2
+            if (body && body.updateFromGameObject) body.updateFromGameObject()
+          } else if (target.x > width + halfW2) {
+            target.x = -halfW2
+            if (body && body.updateFromGameObject) body.updateFromGameObject()
+          }
         }
       })
       // Guardar referencia y limpiar al destruir la plataforma
@@ -799,78 +805,8 @@ export default class PlatformFactory {
       })
     }
 
-    // Crear/actualizar fantasmas de borde al crear
-    try { this.updateEdgeGhosts(plat) } catch {}
-
     return plat
   }
 }
 
-// --- Fantasmas de borde (wrap visual/colisión) ---------------------------------
-/**
- * Crea/elimina y sincroniza copias "fantasma" a ±ancho de pantalla para que,
- * al envolver horizontalmente, las plataformas existan inmediatamente al otro lado.
- * Los fantasmas no cuentan para puntaje ni spawns y se marcan con isGhost=true.
- * @param {Phaser.Types.Physics.Arcade.GameObjectWithStaticBody & any} plat
- */
-PlatformFactory.prototype.updateEdgeGhosts = function(plat) {
-  const scene = this.scene
-  if (!scene || !plat || !plat.active) return
-  const width = scene.scale?.width || 800
-  const edge = 60
-  const halfW = (plat.displayWidth ?? plat.width ?? 0) * 0.5
-
-  // Helper para crear un fantasma si no existe
-  const ensureGhost = (side) => {
-    const key = side === 'left' ? '_ghostLeft' : '_ghostRight'
-    if (plat[key] && plat[key].active) return plat[key]
-    const offset = side === 'left' ? -width : width
-    const ghost = scene.physics.add.staticImage(plat.x + offset, plat.y, 'platform')
-      .setDepth(plat.depth ?? 0)
-      .setAlpha(plat.alpha ?? 1)
-    // Tamaño/escala como la original
-    if (ghost.setDisplaySize && plat.displayWidth && plat.displayHeight) {
-      ghost.setDisplaySize(plat.displayWidth, plat.displayHeight)
-    }
-    ghost.refreshBody?.()
-    ghost.isGhost = true
-    // Copiar tinte del tipo si aplica
-    const tint = plat.typeColor
-    if (typeof tint === 'number') ghost.setTint(tint)
-    // Añadir al mismo grupo para colisiones
-    try { scene.platforms?.add?.(ghost) } catch {}
-    plat[key] = ghost
-    // Destruir junto con la original
-    plat.once('destroy', () => { try { ghost.destroy() } catch {} })
-    return ghost
-  }
-
-  const nearLeft = (plat.x - halfW) <= edge
-  const nearRight = (width - (plat.x + halfW)) <= edge
-
-  // Fantasma a la izquierda (aparece a la derecha)
-  if (nearLeft) {
-    const g = ensureGhost('right')
-    if (g && g.active) {
-      g.x = plat.x + width
-      g.y = plat.y
-      g.refreshBody?.()
-    }
-  } else if (plat._ghostRight) {
-    try { plat._ghostRight.destroy() } catch {}
-    plat._ghostRight = null
-  }
-
-  // Fantasma a la derecha (aparece a la izquierda)
-  if (nearRight) {
-    const g = ensureGhost('left')
-    if (g && g.active) {
-      g.x = plat.x - width
-      g.y = plat.y
-      g.refreshBody?.()
-    }
-  } else if (plat._ghostLeft) {
-    try { plat._ghostLeft.destroy() } catch {}
-    plat._ghostLeft = null
-  }
-}
+// Ghost edge duplication removed: using clean wrap instead.
