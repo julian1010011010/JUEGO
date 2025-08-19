@@ -14,6 +14,8 @@ export default class PlatformFactory {
     timed: { name: 'Temporizada', color: 0xffea00, typeChance: 0.15 },
     dodger: { name: 'Escurridiza', color: 0x651fff, typeChance: 0.15 },
     ice: { name: 'Hielo', color: 0xff69b4, typeChance: 0.15 },
+    // NUEVO: Elástica
+    bouncy: { name: 'Elástica', color: 0x00e676, typeChance: 0.12 },
     normal: { name: 'Normal', color: null, typeChance: 0.45 },
     inversa: { name: 'Inversa', color: 0x000000, typeChance: 0.10 }, // negro
     // Eliminada la plataforma 'moving' por no tener poder
@@ -60,6 +62,8 @@ export default class PlatformFactory {
     plat.isDodger = typeKey === 'dodger'
     plat.isIce = typeKey === 'ice'
     plat.isInversa = typeKey === 'inversa'
+    // NUEVO:
+    plat.isBouncy = typeKey === 'bouncy'
   }
 
   /**
@@ -154,6 +158,11 @@ export default class PlatformFactory {
       case 'ice': {
         PlatformFactory.applyTypeMeta(plat, 'ice')
         plat.setTint(0xff69b4) // rosa forzado
+        break
+      }
+      // NUEVO: Elástica (rebota al jugador y es semitransparente)
+      case 'bouncy': {
+        this.applyBouncyBehavior(scene, plat)
         break
       }
       case 'inversa': {
@@ -263,6 +272,55 @@ export default class PlatformFactory {
   }
 
   /**
+   * NUEVO: Aplica comportamiento para plataforma 'bouncy' (elástica).
+   * - Semitransparente.
+   * - Zona superior que detecta caída del jugador y lo hace rebotar.
+   * - Cooldown corto para evitar rebotes múltiples.
+   * - Limpieza de timers y zona al destruirse.
+   */
+  applyBouncyBehavior(scene, plat) {
+    PlatformFactory.applyTypeMeta(plat, 'bouncy')
+    plat.setTint(PlatformFactory.PLATFORM_TYPES.bouncy.color)
+    plat.setAlpha(0.6)
+
+    PlatformFactory.ensurePxTexture(scene)
+    const bounceZone = PlatformFactory.createStayZone(scene, plat, 8)
+    plat.bounceZone = bounceZone
+    plat._bounceCooldown = false
+
+    plat._bounceEv = scene.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => {
+        const player = scene.player
+        if (!plat.active || !player || !bounceZone.body) return
+        const overlapping = scene.physics.world.overlap(player, bounceZone)
+        if (!overlapping) return
+
+        const body = player.body
+        if (!body) return
+
+        // Solo rebota si el jugador está cayendo sobre la zona
+        if (body.velocity.y > 50 && !plat._bounceCooldown) {
+          const boost = 520
+          player.setVelocityY?.(-boost)
+          // Pequeño destello al rebotar
+          plat.setAlpha(0.8)
+          scene.tweens.add({ targets: plat, alpha: 0.6, duration: 120 })
+
+          plat._bounceCooldown = true
+          scene.time.delayedCall(220, () => { if (plat.active) plat._bounceCooldown = false })
+        }
+      }
+    })
+
+    plat.once('destroy', () => {
+      plat._bounceEv?.remove(false)
+      bounceZone.destroy()
+    })
+  }
+
+  /**
    * Crea una plataforma en (x,y) con posibles rasgos especiales.
    * Devuelve el GameObject de plataforma (Static Physics Sprite).
    * @param {number} x
@@ -282,8 +340,8 @@ export default class PlatformFactory {
     PlatformFactory.setTypeFlags(plat, typeKey)
     this.applyTypeBehavior(scene, plat, typeKey)
 
-    // 15% móviles si no son dodger ni hielo (para evitar combinaciones complicadas)
-    plat.isMoving = !plat.isDodger && !plat.isIce && Math.random() < 0.15
+    // 15% móviles si no son dodger, hielo ni elástica (para evitar combinaciones complicadas)
+    plat.isMoving = !plat.isDodger && !plat.isIce && !plat.isBouncy && Math.random() < 0.15
     if (plat.isMoving) {
       const amplitude = Phaser.Math.Between(30, 90)
       const baseX = x

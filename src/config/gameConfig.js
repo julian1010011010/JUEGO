@@ -24,10 +24,11 @@ const gameConfig = {
   platforms: {
     weights: {
       normal: 10,
-      fragile: 90,
+      fragile: 10,
       timed: 10,
       ice: 10,
       dodger: 10,
+      bouncy: 90,
       inversa: 10
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     }
