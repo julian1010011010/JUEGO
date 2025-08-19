@@ -30,6 +30,12 @@ const gameConfig = {
       dodger: 13,
       inversa: 60
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
+    },
+
+    // NUEVO: configuración de desplazamiento
+    movement: {
+      displacementFactor: 1,         // factor general para plataformas
+      inversaDisplacementFactor: 2   // factor específico para plataforma inversa
     }
   },
 
