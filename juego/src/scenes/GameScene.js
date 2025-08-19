@@ -71,7 +71,7 @@ export default class GameScene extends Phaser.Scene {
       this.platformFactory.spawn(Phaser.Math.Between(60, width - 60), startY - i * 70)
     }
     // Plataforma base bajo el jugador
-    this.platformFactory.spawn(width / 2, height - 60)
+    this.basePlatform = this.platformFactory.spawn(width / 2, height - 60)
 
     // Jugador
     this.player = this.physics.add.sprite(width / 2, height - 120, 'player')
@@ -210,6 +210,11 @@ export default class GameScene extends Phaser.Scene {
 
       this.player.setVelocityY(-520)
 
+        // Destruir la plataforma base en el primer salto
+        if (this.basePlatform && this.basePlatform.active) {
+          this.basePlatform.destroy();
+          this.basePlatform = null;
+        }
       // Rompe frágil al despegar
       if (this.currentPlatform && this.currentPlatform.isFragile && !this.currentPlatform._broken) {
         this.currentPlatform._broken = true
