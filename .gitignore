@@ -1,0 +1,10 @@
+# Node
+node_modules/
+# Build output
+dist/
+# OS/macOS
+.DS_Store
+# Env
+.env
+# Local dev artifacts
+.touch*
