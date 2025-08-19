@@ -350,7 +350,11 @@ export default class PlatformFactory {
 
         // Solo rebota si el jugador está cayendo sobre la zona
         if (body.velocity.y > 50 && !plat._bounceCooldown) {
-          const boost = 520
+          // NUEVO: impulso = 2x el salto normal del jugador (con fallback)
+          const baseJump = Math.abs(
+            player.jumpVelocity ?? player.jumpSpeed ?? player.jumpForce ?? player._jumpVelocity ?? 300
+          )
+          const boost = baseJump * 3
           player.setVelocityY?.(-boost)
           // Pequeño destello al rebotar
           plat.setAlpha(0.8)
