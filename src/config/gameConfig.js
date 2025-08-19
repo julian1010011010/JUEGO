@@ -2,13 +2,13 @@ const gameConfig = {
   // Frecuencia de misiles de lava (en milisegundos)
   lavaMissiles: {
     // NUEVO: habilitar/deshabilitar completamente los misiles de lava
-    enabled: false,
+    enabled: true ,
 
     // NUEVO: tasa de generación por minuto (si se define, ignora intervalSeconds/intervalMs)
     ratePerMinute: 0, // 0 para desactivar
 
   // Cada cuánto tiempo (elige UNA de estas opciones):
-  // 1) Segundos fijos entre oleadas (número > 0)
+  // 1) Segundos fijos entre oleadas (número > 0) 
   intervalSeconds: 2.5,
   // 2) Milisegundos fijos o rango {min,max} (se usa si no hay intervalSeconds; ignora si ratePerMinute > 0)
   // intervalMs: 3000,
@@ -35,11 +35,12 @@ const gameConfig = {
   avoidBaseXRadius: 80,
     weights: {
       normal: 10,
-      fragile: 90,
-      timed: 90 ,
+      fragile: 10,
+      timed: 10 ,
       ice: 10 ,
       dodger: 10,
-      invertX: 10, bouncy: 10,
+      invertX: 0.5,
+      bouncy: 90, 
       inversa: 10
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     }

@@ -65,8 +65,8 @@ export default class PlayerController {
     // Tinte por solape con el grupo de plataformas
     this.playerColorManager.applyWhileOverlap(scene.platforms, null, 80)
 
-    // Colisión con plataformas (solo efectos no-gráficos; tinte lo maneja el manager)
-    scene.physics.add.collider(this.player, scene.platforms, (_player, plat) => {
+  // Colisión con plataformas con processCallback para soportar modo "fantasma"
+  scene.physics.add.collider(this.player, scene.platforms, (_player, plat) => {
       if (!plat || !plat.body) return
       const pb = this.player.body
       const sb = plat.body
@@ -93,7 +93,7 @@ export default class PlayerController {
         // Hielo: ventana de resbalón
         if (plat.isIce) this._onIceUntil = scene.time.now + 350
       }
-    })
+  }, (player, plat) => this._platformProcess(player, plat), this)
 
     // Cleanup en shutdown de escena
     scene.events.once('shutdown', () => this.destroy())
@@ -223,5 +223,24 @@ export default class PlayerController {
     rightZone.on('pointerdown', () => (this.rightPressed = true))
     rightZone.on('pointerup', () => (this.rightPressed = false))
     rightZone.on('pointerout', () => (this.rightPressed = false))
+  }
+
+  // Determina si se debe procesar la colisión con plataformas (soporta modo fantasma)
+  _platformProcess(player, plat) {
+    try {
+      const now = this.scene.time.now
+      const pb = player.body
+      const sb = plat.body
+      if (!pb || !sb) return true
+      // Ventana de "modo fantasma": atravesar plataformas desde abajo mientras asciende
+      const ghostActive = !!(player._ghostUntil && now <= player._ghostUntil)
+      if (!ghostActive) return true
+      // Si va subiendo, NO colisionar para permitir atravesar desde abajo
+      if (pb.velocity.y < 0) return false
+      // Si va bajando: sólo colisionar si está por encima de la plataforma (para poder caer encima)
+      return pb.bottom <= sb.top + 6
+    } catch {
+      return true
+    }
   }
 }

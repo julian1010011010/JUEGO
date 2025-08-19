@@ -559,6 +559,15 @@ export default class PlatformFactory {
           )
           const boost = baseJump * 3
           player.setVelocityY?.(-boost)
+          // Activar modo fantasma temporal para atravesar desde abajo y caer encima
+          const ghostMs = 600
+          player._ghostUntil = scene.time.now + ghostMs
+          // Feedback visual sutil: brillo y alpha
+          try {
+            player.setTintFill?.(0x88ffffff)
+            scene.tweens.add({ targets: player, alpha: { from: 1, to: 0.7 }, yoyo: true, duration: 150, repeat: 2 })
+            scene.time.delayedCall(ghostMs, () => { try { player.clearTint?.(); player.setAlpha?.(1) } catch {} })
+          } catch {}
           // Pequeño destello al rebotar
           plat.setAlpha(0.8)
           scene.tweens.add({ targets: plat, alpha: 0.6, duration: 120 })
