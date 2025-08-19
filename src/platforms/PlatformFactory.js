@@ -146,45 +146,7 @@ export default class PlatformFactory {
         break
       }
       case 'timed': {
-        PlatformFactory.applyTypeMeta(plat, 'timed')
-        plat.setTint(PlatformFactory.PLATFORM_TYPES.timed.color)
-
-        // Parpadeo inicial (1s)
-        PlatformFactory.blinkFor(scene, plat, 1000)
-
-        // Sensor y control de permanencia/desaparición-reaparición
-        PlatformFactory.ensurePxTexture(scene)
-        const stayZone = PlatformFactory.createStayZone(scene, plat, 6)
-        plat.stayZone = stayZone
-        plat._stayAccumMs = 0
-        plat._breaking = false
-
-        const tickMs = 100
-        plat._stayCheckEv = scene.time.addEvent({
-          delay: tickMs,
-          loop: true,
-          callback: () => {
-            if (!plat.active || !scene.player || !stayZone.body) return
-            const onTop = scene.physics.world.overlap(scene.player, stayZone)
-            if (onTop) {
-              plat._stayAccumMs += tickMs
-              if (!plat._breaking && plat._stayAccumMs >= 2000) {
-                plat._breaking = true
-                PlatformFactory.blinkFor(scene, plat, 1000).then(() => { if (plat.active) plat.destroy() })
-              }
-            } else {
-              plat._stayAccumMs = 0
-            }
-          }
-        })
-
-        const spawnX = plat.x
-        const spawnY = plat.y
-        plat.once('destroy', () => {
-          plat._stayCheckEv?.remove(false)
-          stayZone.destroy()
-          scene.time.delayedCall(500, () => this.spawn(spawnX, spawnY))
-        })
+        this.applyTimedBehavior(scene, plat)
         break
       }
       case 'dodger': {
@@ -206,6 +168,56 @@ export default class PlatformFactory {
         plat.clearTint()
       }
     }
+  }
+
+  /**
+   * Aplica comportamiento para plataforma 'timed' (temporizada).
+   * - Meta/tinte.
+   * - Parpadeo inicial.
+   * - Sensor de permanencia y destrucción tras 2s sobre la plataforma.
+   * - Respawn en la misma posición tras 500ms.
+   */
+  applyTimedBehavior(scene, plat) {
+    PlatformFactory.applyTypeMeta(plat, 'timed')
+    plat.setTint(PlatformFactory.PLATFORM_TYPES.timed.color)
+
+    // Parpadeo inicial (1s)
+    PlatformFactory.blinkFor(scene, plat, 1000)
+
+    // Sensor y control de permanencia/desaparición-reaparición
+    PlatformFactory.ensurePxTexture(scene)
+    const stayZone = PlatformFactory.createStayZone(scene, plat, 6)
+    plat.stayZone = stayZone
+    plat._stayAccumMs = 0
+    plat._breaking = false
+
+    const tickMs = 100
+    plat._stayCheckEv = scene.time.addEvent({
+      delay: tickMs,
+      loop: true,
+      callback: () => {
+        if (!plat.active || !scene.player || !stayZone.body) return
+        const onTop = scene.physics.world.overlap(scene.player, stayZone)
+        if (onTop) {
+          plat._stayAccumMs += tickMs
+          if (!plat._breaking && plat._stayAccumMs >= 2000) {
+            plat._breaking = true
+            PlatformFactory.blinkFor(scene, plat, 1000).then(() => { if (plat.active) plat.destroy() })
+          }
+        } else {
+          plat._stayAccumMs = 0
+        }
+      }
+    })
+
+    // Respawn en misma X/Y al destruir + limpieza (espera 500 ms)
+    const spawnX = plat.x
+    const spawnY = plat.y
+    plat.once('destroy', () => {
+      plat._stayCheckEv?.remove(false)
+      stayZone.destroy()
+      scene.time.delayedCall(500, () => this.spawn(spawnX, spawnY))
+    })
   }
 
   /**
