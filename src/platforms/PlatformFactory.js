@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import PlayerColorManager from '../effects/PlayerColorManager'
 
 export default class PlatformFactory {
   static PLATFORM_TYPES = {
@@ -15,6 +16,12 @@ export default class PlatformFactory {
    */
   constructor(scene) {
     this.scene = scene
+    // NUEVO: inicializa el gestor de color del jugador (una sola vez por escena)
+    if (!this.scene.playerColorManager) {
+      this.scene.playerColorManager = new PlayerColorManager(this.scene, this.scene.player ?? null)
+    } else if (!this.scene.playerColorManager.player && this.scene.player) {
+      this.scene.playerColorManager.setPlayer(this.scene.player)
+    }
   }
 
   /**
@@ -145,41 +152,28 @@ export default class PlatformFactory {
       plat.typeColor = t.color
       plat.typeChance = t.typeChance
       plat.setTint(0x000000)
-      // Movimiento inverso SOLO cuando el jugador se mueve: sigue la dirección opuesta a la velocidad X
+
+      // Movimiento inverso SOLO cuando el jugador se mueve: opuesto a velocidad X
       plat._inversaTween = scene.time.addEvent({
         delay: 16,
         loop: true,
         callback: () => {
           if (!scene.player || !plat.active) return
           const speed = 2
-          const playerBody = scene.player.body
-          if (playerBody && Math.abs(playerBody.velocity.x) > 0.1) {
-            plat.x -= Math.sign(playerBody.velocity.x) * speed
+          const body = scene.player.body
+          if (body && Math.abs(body.velocity.x) > 0.1) {
+            plat.x -= Math.sign(body.velocity.x) * speed
             plat.refreshBody()
           }
         }
       })
       plat.once('destroy', () => plat._inversaTween?.remove(false))
 
-      // NUEVO: pintar al personaje de negro cuando está encima
-      const paintCheck = scene.time.addEvent({
-        delay: 80,
-        loop: true,
-        callback: () => {
-          if (!scene.player || !plat.active) return
-          // Verifica overlap entre player y plataforma inversa
-          if (scene.physics.world.overlap(scene.player, plat)) {
-            scene.player.setTint?.(0x000000)
-          } else {
-            scene.player.clearTint?.()
-          }
-        }
-      })
-      plat.once('destroy', () => {
-        paintCheck?.remove(false)
-        // Limpia el tint si la plataforma se destruye y el player sigue pintado
-        scene.player.clearTint?.()
-      })
+      // NUEVO: usar el manager para pintar de negro mientras hay solape
+      const mgr = scene.playerColorManager || (scene.playerColorManager = new PlayerColorManager(scene, scene.player ?? null))
+      if (!mgr.player && scene.player) mgr.setPlayer(scene.player)
+      mgr.applyWhileOverlap(plat, 0x000000, 80)
+      plat.once('destroy', () => mgr.stopFor(plat, true))
     } else {
       const t = PlatformFactory.PLATFORM_TYPES.normal
       plat.typeName = t.name
