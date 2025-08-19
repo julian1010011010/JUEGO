@@ -623,6 +623,15 @@ export default class GameScene extends Phaser.Scene {
     // Limpieza segura del grupo de misiles (evita acceder a children indefinido)
     this.clearLavaMissiles()
 
+    // Desactivar el controlador del jugador para evitar movimiento tras la muerte
+    if (this.playerCtrl && typeof this.playerCtrl.disable === 'function') {
+      this.playerCtrl.disable()
+    } else if (this.playerCtrl) {
+      // Si no existe método disable, desactiva el input y la física manualmente
+      try { this.playerCtrl.active = false } catch {}
+      try { if (this.player && this.player.body) this.player.body.enable = false } catch {}
+    }
+
     this.best = Math.max(this.best, this.score)
     localStorage.setItem('best_score', String(this.best))
 
