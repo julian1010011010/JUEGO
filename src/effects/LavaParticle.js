@@ -56,10 +56,18 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
     })
     this._launchEvent = scene.time.delayedCall(this.delayMs, () => this.launch())
     this._lifeEvent   = scene.time.delayedCall(7000, () => this.destroy())
+
+  // Estado congelado
+  this._frozen = false
   }
 
   preUpdate(time, delta) {
     super.preUpdate?.(time, delta);
+    if (this._frozen) {
+      // Mantener posición y animación mínima cuando está congelado
+      this.setVelocity(0, 0)
+      return
+    }
     if (this._waiting && this.scene.lava) {
       this.y = this.scene.lava.y - 2;
       this.setVelocity(0, 0);
@@ -83,6 +91,11 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
 
   launch() {
     if (!this.scene || !this.scene.player) { this.destroy(); return }
+    if (this._frozen) {
+      // reprogramar lanzamiento cuando se descongele
+      this._launchEvent = this.scene.time.delayedCall(100, () => this.launch())
+      return
+    }
     this._waiting = false
     // Acelera el parpadeo tras el lanzamiento
     this._blinkEvent?.remove(false)
@@ -102,6 +115,19 @@ export default class LavaParticle extends Phaser.Physics.Arcade.Sprite {
     const dx = px - this.x, dy = py - this.y
     const len = Math.max(1e-3, Math.hypot(dx, dy))
     this.setVelocity((dx / len) * this.speed, (dy / len) * this.speed)
+  }
+
+  setFrozen(frozen) {
+    this._frozen = !!frozen
+    if (this._frozen) {
+      this.body && (this.body.enable = false)
+      this.setBlendMode(Phaser.BlendModes.NORMAL)
+      this.setTint(0x7dd3fc)
+    } else {
+      this.body && (this.body.enable = !this._waiting)
+      this.setBlendMode(Phaser.BlendModes.ADD)
+      // restaurar parpadeo (no limpiamos tint aquí; blink lo seguirá cambiando)
+    }
   }
 
   // NUEVO: genera una estela que se encoge y desvanece, anclada detrás

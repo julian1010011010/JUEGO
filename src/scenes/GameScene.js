@@ -46,6 +46,11 @@ export default class GameScene extends Phaser.Scene {
     this._lavaMissileTimer = null
   // Factor para acelerar la subida de lava dinámicamente (p.ej. durante poderes)
   this.lavaRiseBoost = 1
+  // Flag tiempo de lava congelada
+  this.lavaFrozenUntil = 0
+  // Superficie física temporal para caminar sobre lava congelada
+  this.lavaSurface = null
+  this.lavaSurfaceCollider = null
   }
 
   /** Devuelve un X aleatorio evitando el eje X de la base según config. */
@@ -176,7 +181,7 @@ export default class GameScene extends Phaser.Scene {
     // Partículas de lava: fuego y piedritas pixeladas (requiere 'px')
     this.createLavaParticles()
 
-    // Grupo de misiles y overlap (siempre)
+  // Grupo de misiles y overlap (siempre)
     this.lavaMissiles = this.physics.add.group()
     this.physics.add.overlap(
       this.player,
@@ -221,7 +226,7 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(800, () => (this.canLose = true))
 
     // Iniciar spawner tras el primer frame (evita carreras tras F5/reintentar)
-    this.events.once('postupdate', () => {
+  this.events.once('postupdate', () => {
       if (this.isLavaMissileEnabled()) this.startLavaMissileSpawner()
     })
 
@@ -238,6 +243,11 @@ export default class GameScene extends Phaser.Scene {
   this.playerCtrl = null
   this.powerManager?.deactivate?.()
   this.powerManager = null
+      // Quitar superficie de lava si existiera
+      try {
+        if (this.lavaSurfaceCollider) { this.physics.world.removeCollider(this.lavaSurfaceCollider); this.lavaSurfaceCollider = null }
+      } catch {}
+      try { this.lavaSurface?.destroy?.(); this.lavaSurface = null } catch {}
     })
 
     // Inicializa estado de cruce de plataformas
@@ -351,22 +361,61 @@ export default class GameScene extends Phaser.Scene {
 
     // Lava (visual) sube con la cámara, no baja
     if (this.lava) {
+      const frozen = this.time.now <= (this.lavaFrozenUntil || 0)
       const targetY = this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset
       const currentY = this.lava.y
-      if (targetY < currentY) {
+      if (!frozen && targetY < currentY) {
         const boost = (this.lavaRiseBoost && this.lavaRiseBoost > 0) ? this.lavaRiseBoost : 1
         const maxStep = (this.lavaRiseSpeed * boost * this.game.loop.delta) / 1000
         this.lava.y = Math.max(targetY, currentY - maxStep)
       }
-      this.lava.tilePositionY -= 0.4
+      if (!frozen) this.lava.tilePositionY -= 0.4
 
   // Reposicionar emisores en el borde superior de la lava
   if (this.lavaFlames) this.lavaFlames.setPosition(0, this.lava.y - 2)
   if (this.lavaRocks) this.lavaRocks.setPosition(0, this.lava.y - 2)
+
+      // Mientras esté congelada, crear/actualizar una "superficie" física para caminar
+      if (frozen) {
+        // Crear si no existe
+        if (!this.lavaSurface) {
+          // Usamos un sprite estático de 1x1 escalado a ancho completo, invisible
+          this.lavaSurface = this.physics.add.staticImage(0, this.lava.y - 2, 'px')
+            .setOrigin(0, 0)
+            .setAlpha(0)
+            .setDepth(2)
+          // Ajustar ancho/alto del cuerpo
+          const w = this.scale.width
+          const hSurf = 4
+          this.lavaSurface.setDisplaySize(w, hSurf)
+          if (this.lavaSurface.body?.setSize) this.lavaSurface.body.setSize(w, hSurf)
+          if (this.lavaSurface.body?.updateFromGameObject) this.lavaSurface.body.updateFromGameObject()
+          // Collider con jugador: solo actualiza "ground" para coyote y salto
+          this.lavaSurfaceCollider = this.physics.add.collider(this.player, this.lavaSurface, () => {
+            if (this.playerCtrl) {
+              this.playerCtrl.lastGroundTime = this.time.now
+              this.playerCtrl.currentPlatform = null
+            }
+          })
+        } else {
+          // Actualizar posición para seguir el borde superior de la lava
+          this.lavaSurface.y = this.lava.y - 2
+          if (this.lavaSurface.body?.updateFromGameObject) this.lavaSurface.body.updateFromGameObject()
+        }
+      } else if (this.lavaSurface) {
+        // Destruir superficie y su collider al descongelar
+        try {
+          if (this.lavaSurfaceCollider) this.physics.world.removeCollider(this.lavaSurfaceCollider)
+        } catch {}
+        this.lavaSurfaceCollider = null
+        try { this.lavaSurface.destroy() } catch {}
+        this.lavaSurface = null
+      }
     }
 
     // Muerte por lava: usar la lava visible (con margen) para evitar muertes tempranas
-    if (!this._ended && this.canLose && this.player && this.player.body) {
+    // Si la lava está congelada, no matar (puede caminar sobre la superficie)
+  if (!this._ended && this.canLose && this.player && this.player.body && !(this.time.now <= (this.lavaFrozenUntil || 0))) {
       const computedTop = this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset
       const visibleTop = this.lava ? this.lava.y : computedTop
       const killTop = Math.max(visibleTop, computedTop) + this.lavaKillMargin
@@ -436,6 +485,7 @@ export default class GameScene extends Phaser.Scene {
       delay: initialDelay,
       loop: true,
       callback: () => {
+        if (this.time.now <= (this.lavaFrozenUntil || 0)) return
         if (this._ended || !this.canLose || !this.isLavaMissileEnabled()) return
         const n = this.getLavaMissileCount?.() ?? 1
         for (let i = 0; i < n; i++) this.spawnLavaParticle()
