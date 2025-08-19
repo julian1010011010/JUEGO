@@ -227,6 +227,35 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
 
   // 4) Espera breve y mostrar brazo con pulgar
   const spawnThumb = () => {
+    // Crear el emisor de partículas de lava con MUCHAS más partículas y frecuencia
+    const lavaParticles = s.add.particles(player.x, lineY, 'px', {
+      quantity: 32, // MUCHAS más partículas
+      frequency: 10, // más seguido
+      lifespan: { min: 400, max: 900 },
+      speedY: { min: -120, max: -220 },
+      speedX: { min: -30, max: 30 },
+      scale: { start: 3, end: 1, ease: 'Linear' },
+      tint: [0xf59e0b, 0xfbbf24, 0xf97316, 0xef4444],
+      alpha: { start: 1, end: 0 },
+      blendMode: Phaser.BlendModes.ADD,
+      follow: null
+    });
+    lavaParticles.setDepth((lava?.depth ?? 10) - 2); // detrás de la lava
+    // Piedritas oscuras como la lava principal, también muchas más
+    const rockParticles = s.add.particles(player.x, lineY, 'px', {
+      quantity: 16,
+      frequency: 20,
+      lifespan: { min: 700, max: 1400 },
+      speedY: { min: -180, max: -260 },
+      speedX: { min: -80, max: 80 },
+      gravityY: 600,
+      scale: { start: 2, end: 2 },
+      tint: [0x1f2937, 0x4b5563, 0x111827],
+      alpha: { start: 1, end: 0.9 },
+      rotate: 0,
+      emitting: true
+    });
+    rockParticles.setDepth((lava?.depth ?? 10) - 2);
     // Mostrar el sprite terminator.png como pulgar
     const thumb = scene.add.sprite(player.x, lineY, 'terminator').setOrigin(0.5, 1);
     // Escalar al ancho del jugador
