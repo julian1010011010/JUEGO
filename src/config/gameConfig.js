@@ -15,7 +15,7 @@ const gameConfig = {
     // intervalMs: { min: 1500, max: 3500 },
 
     // Velocidad de la partícula en px/s (acepta número o {min,max})
-    speed: { min: 10, max: 20 },
+    speed: { min: 100, max: 200 },
 
     // Tamaño visual/collider en píxeles (acepta número o {min,max})
     size: { min: 10, max: 20 },

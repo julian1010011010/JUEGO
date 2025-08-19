@@ -4,7 +4,7 @@ import PowerManager from '../powers/PowerManager'
 import PlayerController from '../player/PlayerController'
 import gameConfig from '../config/gameConfig'
 import LavaParticle from '../effects/LavaParticle'
-import Animation from '../effects/animation'
+import { playLavaDeath } from '../effects/playLavaDeath'
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -629,13 +629,22 @@ export default class GameScene extends Phaser.Scene {
       if (this.overlay) this.overlay.style.display = 'flex'
     }
 
-  // Ejecuta la animación de impacto para lava o misil antes de mostrar overlay
-  if ((cause === 'lava' || cause === 'missile') && !this._playedLavaAnim) {
+    // Ejecuta la animación de muerte antes de mostrar overlay
+    if ((cause === 'lava' || cause === 'missile') && !this._playedLavaAnim) {
       this._playedLavaAnim = true
-      const anim = this._impactAnim || new Animation(this)
-      this._impactAnim = anim
-      // Reproducir secuencia y al finalizar, mostrar overlay
-      anim.play(this.player).then(showOverlay)
+      // Lava: usar la cinemática Terminator; Misil: usar mismo flujo visual simple (sin thumb)
+      if (cause === 'lava') {
+        playLavaDeath(this, this.player, this.lava, {
+          sinkDuration: 1200,
+          thumbDuration: 900,
+          cameraZoom: 1.1,
+          useMask: true,
+          bubbleFX: true
+        }).then(showOverlay)
+      } else {
+        // Para misil, solo mostrar overlay directo (o se podría crear otra cinematica futura)
+        showOverlay()
+      }
     } else {
       showOverlay()
     }
