@@ -290,8 +290,8 @@ export default class PlatformFactory {
         if (!scene.player || !plat.active) return
         const body = scene.player.body
         if (body && Math.abs(body.velocity.x) > 0.1) {
-          const speed = 2
-          plat.x -= Math.sign(body.velocity.x) * speed
+          const speed = 4
+          plat.x -= Math.sign(body.velocity.x) * speed 
           plat.refreshBody()
         }
       }
