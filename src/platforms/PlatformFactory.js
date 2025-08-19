@@ -139,10 +139,7 @@ export default class PlatformFactory {
   applyTypeBehavior(scene, plat, typeKey) {
     switch (typeKey) {
       case 'fragile': {
-        PlatformFactory.applyTypeMeta(plat, 'fragile')
-        scene.tweens.killTweensOf(plat)
-        plat.setAlpha(1)
-        plat.setTint(PlatformFactory.PLATFORM_TYPES.fragile.color)
+        this.applyFragileBehavior(scene, plat)
         break
       }
       case 'timed': {
@@ -168,6 +165,18 @@ export default class PlatformFactory {
         plat.clearTint()
       }
     }
+  }
+
+  /**
+   * Aplica comportamiento para plataforma 'fragile' (frágil).
+   * - Meta/tinte.
+   * - Limpieza de tweens y normalización de alpha.
+   */
+  applyFragileBehavior(scene, plat) {
+    PlatformFactory.applyTypeMeta(plat, 'fragile')
+    scene.tweens.killTweensOf(plat)
+    plat.setAlpha(1)
+    plat.setTint(PlatformFactory.PLATFORM_TYPES.fragile.color)
   }
 
   /**
