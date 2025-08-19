@@ -71,7 +71,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    this.createTextures()
+  this.createTextures();
+  this.load.image('terminator', 'src/effects/images/terminator.png');
   }
 
   create() {

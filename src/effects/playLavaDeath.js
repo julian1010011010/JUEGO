@@ -227,17 +227,22 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
 
   // 4) Espera breve y mostrar brazo con pulgar
   const spawnThumb = () => {
-    const arm = scene.add.sprite(player.x, lineY + 2, 'thumb_up_arm').setOrigin(0.5, 1)
-    arm.setDepth((lava?.depth ?? 10) + 1) // por encima de la lava
+    // Mostrar únicamente el sprite terminator.png como pulgar
+    const thumb = scene.add.sprite(player.x, lineY + 2, 'terminator').setOrigin(0.5, 1);
+    // Escalar al ancho del jugador
+    const pw = player.displayWidth || player.width || 28;
+    const ratio = pw / (thumb.width || pw);
+    thumb.setScale(ratio);
+    thumb.setDepth((lava?.depth ?? 10) + 1); // por encima de la lava
     // Zoom de cámara sutil
-    try { s.cameras.main.zoomTo?.(o.cameraZoom, 300) } catch {}
+    try { s.cameras.main.zoomTo?.(o.cameraZoom, 300); } catch {}
 
-    const riseY = lineY - o.thumbRise
+    const riseY = lineY - o.thumbRise;
     const chain = [
-      { targets: arm, y: riseY, duration: 320, ease: 'Sine.out' },
-      { targets: arm, y: riseY - 3, duration: 180, ease: 'Sine.inOut', yoyo: true, repeat: Math.max(0, Math.floor(o.thumbDuration / 360) - 1) },
-      { targets: arm, y: lineY + 8, duration: 380, ease: 'Sine.in' }
-    ]
+      { targets: thumb, y: riseY, duration: 320, ease: 'Sine.out' },
+      { targets: thumb, y: riseY - 3, duration: 180, ease: 'Sine.inOut', yoyo: true, repeat: Math.max(0, Math.floor(o.thumbDuration / 360) - 1) },
+      { targets: thumb, y: lineY + 8, duration: 380, ease: 'Sine.in' }
+    ];
 
     if (tl) {
       chain.forEach(c => tl.add(c))
