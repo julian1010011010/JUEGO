@@ -103,8 +103,13 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
   const prevDepth = player.depth
   const prevLavaDepth = lava?.depth
   const prevLavaY = lava?.y
+  const prevTint = player.tintTopLeft // guarda el tint anterior
+  const prevAngle = player.angle      // guarda el ángulo anterior
 
   try {
+    // Pintar de rojo y girar la cara
+    player.setTint?.(0xff0000)
+    player.setAngle?.(-30)
     if (body) {
       body.setAllowGravity?.(false)
       body.setVelocity?.(0, 0)
@@ -282,16 +287,9 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
     try { if (lava && typeof prevLavaY === 'number') lava.y = prevLavaY } catch {}
     // Ocultar / desactivar player
     try { player.setVisible?.(false) } catch {}
-    try {
-      const body = player.body
-      if (body) {
-        body.moves = false
-        body.enable = false
-        body.setAllowGravity?.(false)
-      }
-    } catch {}
-    // Restaurar input
-    if (s.input) s.input.enabled = !!prevInput
+    // Limpia el tint solo después de ocultar
+    try { player.clearTint?.() } catch {}
+    try { player.setAngle?.(prevAngle || 0) } catch {}
     // Evento para integrarse con UI/flow del juego
     try { s.events.emit('lava-death-finished') } catch {}
     player._lavaDeathPlaying = false
