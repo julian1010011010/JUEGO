@@ -45,6 +45,22 @@ export default class GameScene extends Phaser.Scene {
     this._lavaMissileTimer = null
   }
 
+  /** Devuelve un X aleatorio evitando el eje X de la base según config. */
+  pickSpawnX() {
+    const width = this.scale.width
+  const baseX = this.platformBaseX ?? (width / 2)
+    const avoidRadius = Number(gameConfig?.platforms?.avoidBaseXRadius) || 0
+    const minX = 60, maxX = width - 60
+    if (avoidRadius <= 0) return Phaser.Math.Between(minX, maxX)
+    let x
+    let attempts = 0
+    do {
+      x = Phaser.Math.Between(minX, maxX)
+      attempts++
+    } while (Math.abs(x - baseX) < avoidRadius && attempts < 16)
+    return x
+  }
+
   preload() {
     this.createTextures()
   }
@@ -74,21 +90,44 @@ export default class GameScene extends Phaser.Scene {
    const startOffset = Number(gameConfig?.platforms?.startYOffset) || 50
   const gapAboveBase = Number(gameConfig?.platforms?.minGapAboveBase) || 40
   const baseY = height - (startOffset + 10)
+  const baseX = width / 2
+  this.platformBaseX = baseX
   const startY = baseY - gapAboveBase
     for (let i = 0; i < 12; i++) {
-      const x = Phaser.Math.Between(60, width - 60)
+  const x = this.pickSpawnX()
       const y = startY - i * 70
       this.platformFactory.spawn(x, y, this.pickPlatformType())
     } 
   // Plataforma base bajo el jugador (siempre normal y sin movimiento)
-  this.platformFactory.spawn(width / 2, baseY, 'normal', { noMove: true })
+  this.platformFactory.spawn(baseX, baseY, 'normal', { noMove: true, allowBaseX: true, isBase: true })
 
   // Límite global: no permitir spawns debajo de esta línea (por ejemplo, respawns)
   this.platformSpawnMaxY = baseY - gapAboveBase
 
-  // Jugador y controlador
+  // Jugador y controlador (inicia justo por encima de la base)
   this.playerCtrl = new PlayerController(this)
-  this.player = this.playerCtrl.create(width / 2, height - 120)
+  const playerStartY = baseY - 60
+  this.player = this.playerCtrl.create(baseX, playerStartY)
+  // Baseline dinámico para el contador de metros (arranca en 0)
+  this._metersBaselineY = this.player.y
+  // Reasignar estela para que siga al nuevo player tras restart
+  if (this.platformFactory?.constructor?.ensureTrailSystem) {
+    this.platformFactory.constructor.ensureTrailSystem(this)
+    const trail = this.playerTrail
+    const emitter = trail?.emitter
+    if (emitter) {
+      if (emitter.startFollow) emitter.startFollow(this.player)
+      emitter.manager?.setDepth?.((this.player.depth ?? 0) - 1)
+      if (emitter.setEmitZone) {
+        // no-op, solo asegurar API
+      }
+      emitter.on = true
+      emitter.emitting = true
+      if (emitter.resume) emitter.resume()
+      if (emitter.start) emitter.start()
+    }
+    if (trail) trail.following = true
+  }
 
     // Contador de metros ascendidos (texto normal estilo pixel art)
     this.metersText = this.add.text(12, 12, '0 m', {
@@ -112,9 +151,10 @@ export default class GameScene extends Phaser.Scene {
 
   // La colisión e input del jugador los maneja PlayerController
 
-    // Cámara: solo sube (sin seguir hacia abajo)
-    this.cameras.main.stopFollow()
-    this._cameraMinY = this.cameras.main.scrollY
+  // Cámara: reset al inicio y solo-subida (sin seguir hacia abajo)
+  this.cameras.main.stopFollow()
+  this.cameras.main.setScroll(0, 0)
+  this._cameraMinY = 0
 
   // Lava visual (la muerte se decide con borde inferior de cámara)
     const lavaY = height - this.lavaHeight
@@ -160,8 +200,8 @@ export default class GameScene extends Phaser.Scene {
     const restartBtn = document.getElementById('restart')
     if (restartBtn) {
       restartBtn.onclick = () => {
-        if (this.overlay) this.overlay.style.display = 'none'
-        this.scene.restart()
+        // Reinicio duro equivalente a F5
+        window.location.reload()
       }
     }
 
@@ -200,8 +240,9 @@ export default class GameScene extends Phaser.Scene {
   update() {
     // Actualizar metros ascendidos
     if (this.metersText && this.player) {
-      // Calcula la altura ascendida desde el punto inicial (this.scale.height - 120)
-      const metros = Math.max(0, Math.round((this.scale.height - 120 - this.player.y) / 10))
+      // Calcula la altura ascendida desde la posición inicial del jugador
+      const baseY = (this._metersBaselineY ?? (this.scale.height - 120))
+      const metros = Math.max(0, Math.round((baseY - this.player.y) / 10))
       this.metersText.setText(`${metros} m`)
     }
     // Animar lava cayendo y humo del volcán
@@ -258,7 +299,7 @@ export default class GameScene extends Phaser.Scene {
     while (this.platforms.getChildren().length < 14) {
       const topY = this.getTopPlatformY()
       const newY = topY - Phaser.Math.Between(60, 100)
-      const newX = Phaser.Math.Between(60, this.scale.width - 60)
+  const newX = this.pickSpawnX()
       this.platformFactory.spawn(newX, newY, this.pickPlatformType())
     }
 

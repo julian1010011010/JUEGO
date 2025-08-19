@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import gameConfig from '../config/gameConfig'
 
 /**
  * Fabrica de plataformas con rasgos especiales.
@@ -654,7 +655,20 @@ export default class PlatformFactory {
     // Clamp Y para evitar spawns por debajo de la base (si la escena define el límite)
     const clampY = Number(scene.platformSpawnMaxY)
     const spawnY = isFinite(clampY) ? Math.min(y, clampY) : y
-    const plat = scene.platforms.create(x, spawnY, 'platform')
+    // Evitar eje X de la base si la escena lo define y hay radio de evitación
+    let spawnX = x
+    const allowBaseX = !!(options && (options.allowBaseX || options.isBase || options.noAvoidBaseX))
+  const avoidBaseX = scene.platformBaseX
+  const r = Number(gameConfig?.platforms?.avoidBaseXRadius) || 0
+    if (!allowBaseX && isFinite(avoidBaseX) && r > 0) {
+      const minX = 60, maxX = scene.scale?.width ? (scene.scale.width - 60) : (x)
+      let attempts = 0
+      while (Math.abs(spawnX - avoidBaseX) < r && attempts < 16) {
+        spawnX = Phaser.Math.Between(minX, maxX)
+        attempts++
+      }
+    }
+    const plat = scene.platforms.create(spawnX, spawnY, 'platform')
     plat.refreshBody()
 
     // REEMPLAZO: selección/aplicación del tipo (con flags y comportamiento)

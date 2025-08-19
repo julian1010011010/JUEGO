@@ -31,6 +31,8 @@ const gameConfig = {
   startYOffset: 90,
   // NUEVO: separación mínima por encima de la plataforma base donde pueden aparecer plataformas
   minGapAboveBase: 40,
+  // NUEVO: evitar crear plataformas alineadas con la base; radio en píxeles
+  avoidBaseXRadius: 80,
     weights: {
       normal: 10,
       fragile: 10,
