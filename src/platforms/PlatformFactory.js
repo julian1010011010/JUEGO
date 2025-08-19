@@ -58,6 +58,9 @@ export default class PlatformFactory {
       plat.typeColor = t.color
       plat.typeChance = t.typeChance
       plat.setTint(t.color)
+      // FIX: si algún tween anterior quedó enganchado, eliminar y normalizar alpha
+      scene.tweens.killTweensOf(plat)
+      plat.setAlpha(1)
       // (Sin lógica de parpadeo/respawn aquí)
     } else if (plat.isTimed) {
       const t = PlatformFactory.PLATFORM_TYPES.timed
@@ -169,7 +172,7 @@ export default class PlatformFactory {
       })
       plat.once('destroy', () => plat._inversaTween?.remove(false))
 
-      // NUEVO: usar el manager para pintar de negro mientras hay solape
+      // Usa el manager para tintar al jugador de negro mientras hay solape
       const mgr = scene.playerColorManager || (scene.playerColorManager = new PlayerColorManager(scene, scene.player ?? null))
       if (!mgr.player && scene.player) mgr.setPlayer(scene.player)
       mgr.applyWhileOverlap(plat, 0x000000, 80)

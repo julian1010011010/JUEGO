@@ -2,57 +2,57 @@ export default class PlayerColorManager {
   constructor(scene, player = null) {
     this.scene = scene
     this.player = player
-    this._watches = new Map() // Map<target, { event, color, interval }>
+    this._watches = new Map() // Map<target, { event, color }>
   }
 
   setPlayer(player) {
     this.player = player
   }
 
-  // Registra un watch: mientras haya solape con el target, aplica 'color'
   applyWhileOverlap(target, color, interval = 80) {
-    if (!target || !this.scene) return
-    if (this._watches.has(target)) return
-
+    if (!this.scene || !target || this._watches.has(target)) return
     const ev = this.scene.time.addEvent({
       delay: interval,
       loop: true,
       callback: () => this._recomputeTint()
     })
-
-    this._watches.set(target, { event: ev, color, interval })
-
-    // Limpieza automática si el target se destruye
+    this._watches.set(target, { event: ev, color })
     target.once?.('destroy', () => this.stopFor(target, true))
-
-    // Recalcular de inmediato
     this._recomputeTint()
   }
 
-  stopFor(target, clear = true) {
+  stopFor(target, recalc = true) {
     const meta = this._watches.get(target)
     if (meta) {
       meta.event?.remove(false)
       this._watches.delete(target)
-      if (clear) this._recomputeTint()
+      if (recalc) this._recomputeTint()
     }
   }
 
-  setColor(color) {
-    this.player?.setTint?.(color)
-  }
-
-  clearColor() {
+  clearAll() {
+    for (const { event } of this._watches.values()) event?.remove(false)
+    this._watches.clear()
     this.player?.clearTint?.()
   }
 
   destroy() {
-    for (const { event } of this._watches.values()) event?.remove(false)
-    this._watches.clear()
-    this.clearColor()
+    this.clearAll()
   }
 
-  // Determina si hay algún target en solape y aplica el primer color encontrado
+  _recomputeTint() {
+    const p = this.player
+    const world = this.scene?.physics?.world
+    if (!p || !p.active || !world) return
+    let color = null
+    for (const [target, meta] of this._watches.entries()) {
+      if (!target?.active) continue
+      if (world.overlap(p, target)) { color = meta.color; break }
+    }
+    if (color != null) p.setTint?.(color)
+    else p.clearTint?.()
+  }
+
   _recomputeTint() {
     const p = this.player
     if (!p || !p.active) return
