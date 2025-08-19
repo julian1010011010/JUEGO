@@ -230,10 +230,10 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
     // Mostrar el sprite terminator.png como pulgar
     const thumb = scene.add.sprite(player.x, lineY, 'terminator').setOrigin(0.5, 1);
     // Escalar al ancho del jugador
-    const pw = player.displayWidth || player.width || 28;
-    const ratio = pw / (thumb.width || pw);
-    thumb.setScale(ratio);
-    thumb.setDepth((lava?.depth ?? 10) + 1); // por encima de la lava
+  const pw = player.displayWidth || player.width || 28;
+  const ratio = 2 * (pw / (thumb.width || pw)); // doble de grande
+  thumb.setScale(ratio);
+  thumb.setDepth((lava?.depth ?? 10) - 1); // por detrás de la lava
 
     // Centrar la cámara en la posición de muerte del personaje, sin mover fuera de los límites
     try {
@@ -249,9 +249,9 @@ export function playLavaDeath(scene, player, lava, opts = {}) {
     // Animación: aparecer lentamente desde debajo de la lava
     thumb.y = lineY + 40; // inicia oculto bajo la lava
     const chain = [
-      { targets: thumb, y: lineY, duration: 700, ease: 'Sine.out' }, // sube despacio hasta la superficie
-      { targets: thumb, duration: o.thumbDuration }, // se mantiene visible
-      { targets: thumb, alpha: 0, duration: 400, ease: 'Sine.in' } // se desvanece
+  { targets: thumb, y: lineY + 18, duration: 1200, ease: 'Sine.out' }, // sube más despacio y queda parcialmente sumergido
+  { targets: thumb, duration: 1000 }, // se mantiene visible 1 segundo
+  { targets: thumb, alpha: 0, duration: 400, ease: 'Sine.in' } // se desvanece
     ];
 
     if (tl) {
