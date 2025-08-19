@@ -1,0 +1,12 @@
+{
+  "name": "ascenso-phaser",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": { "phaser": "^3.80.0" },
+  "devDependencies": { "vite": "^5.0.0" }
+}
