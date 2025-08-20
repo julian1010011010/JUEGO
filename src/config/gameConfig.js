@@ -50,7 +50,7 @@ const gameConfig = {
   powers: {
     enabled: true,
     // Probabilidad de generar un poder por plataforma creada (0–1)
-    spawnChancePerPlatform: 0.1,
+    spawnChancePerPlatform: 1.1,
     // Ventana de aviso antes de expirar el poder (ms): parpadeo rápido
     warningMs: 500,
     // Pesos de aparicion por tipo

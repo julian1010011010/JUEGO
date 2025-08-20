@@ -1,6 +1,5 @@
 import Phaser from 'phaser'
 import gameConfig from '../config/gameConfig'
-
 /**
  * Fabrica de plataformas con rasgos especiales.
  * - Selección de tipo ponderada y centralizada.
@@ -749,7 +748,12 @@ export default class PlatformFactory {
     this.applyTypeBehavior(scene, plat, typeKey)
 
   // Intentar spawnear un poder encima según config
-  try { scene.powerManager?.maybeSpawnAbovePlatform?.(plat) } catch {}
+  try { 
+    scene.powerManager?.maybeSpawnAbovePlatform?.(plat)
+    // NUEVO: reproducir sonido si el poder fue recogido
+    // Si tienes acceso al evento de recogida, llama aquí:
+    // scene.sonidoPower?.play()
+  } catch {}
 
   // 15% móviles si no son dodger, hielo, elástica ni inversa X, salvo que se fuerce no mover
   const noMove = !!(options && options.noMove)

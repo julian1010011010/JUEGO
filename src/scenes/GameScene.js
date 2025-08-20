@@ -6,14 +6,15 @@ import gameConfig from '../config/gameConfig'
 import LavaParticle from '../effects/LavaParticle'
 import { playLavaDeath } from '../effects/playLavaDeath'
 import UserInfo from '../user/UserInfo'
-
+import bgmUrl from '../audio/BackGroungSound.mp3'
+import soundPower from '../audio/Power.mp3'
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super('game')
 
     // Entidades y estado base
-  this.player = null
-  this.playerCtrl = null
+    this.player = null
+    this.playerCtrl = null
     this.platforms = null
     this.cursors = null
     this.score = 0
@@ -46,21 +47,23 @@ export default class GameScene extends Phaser.Scene {
     // Misiles de lava
     this.lavaMissiles = null
     this._lavaMissileTimer = null
-  // Factor para acelerar la subida de lava dinámicamente (p.ej. durante poderes)
-  this.lavaRiseBoost = 1
-  // Flag tiempo de lava congelada
-  this.lavaFrozenUntil = 0
-  // Superficie física temporal para caminar sobre lava congelada
-  this.lavaSurface = null
-  this.lavaSurfaceCollider = null
+    // Factor para acelerar la subida de lava dinámicamente (p.ej. durante poderes)
+    this.lavaRiseBoost = 1
+    // Flag tiempo de lava congelada
+    this.lavaFrozenUntil = 0
+    // Superficie física temporal para caminar sobre lava congelada
+    this.lavaSurface = null
+    this.lavaSurfaceCollider = null
+
+    this.sonidoPower = null // NUEVO: referencia al sonido de poder
   }
 
   /** Devuelve un X aleatorio evitando el eje X de la base según config. */
   pickSpawnX() {
     const width = this.scale.width
-  const baseX = this.platformBaseX ?? (width / 2)
+    const baseX = this.platformBaseX ?? (width / 2)
     const avoidRadius = Number(gameConfig?.platforms?.avoidBaseXRadius) || 0
-  const minX = 12, maxX = width - 12
+    const minX = 12, maxX = width - 12
     if (avoidRadius <= 0) return Phaser.Math.Between(minX, maxX)
     let x
     let attempts = 0
@@ -72,11 +75,31 @@ export default class GameScene extends Phaser.Scene {
   }
 
   preload() {
-  this.createTextures();
-  this.load.image('terminator', 'src/effects/images/terminator.png');
+
+      this.load.audio('bgm', bgmUrl)
+      this.load.audio('power', soundPower)
+
+    this.createTextures();
+    this.load.image('terminator', 'src/effects/images/terminator.png');
   }
 
   create() {
+    this.music = this.sound.add('bgm', { loop: true, volume: 0.5 }) 
+
+    // Desbloquear y reproducir tras primer input
+    const tryPlay = () => {
+      if (!this.music.isPlaying) this.music.play()
+      this.input.off('pointerdown', tryPlay)
+      this.input.off('keydown', tryPlay)
+    }
+    this.input.on('pointerdown', tryPlay)
+    this.input.keyboard?.on('keydown', tryPlay)
+
+    // Pausar/Reanudar al cambiar de foco (opcional)
+    this.game.events.on(Phaser.Core.Events.BLUR, () => this.music?.pause())
+    this.game.events.on(Phaser.Core.Events.FOCUS, () => this.music?.resume())
+
+    
     // Preguntar por nombre y edad si es la primera vez
     this.userInfo = new UserInfo()
 
@@ -95,64 +118,67 @@ export default class GameScene extends Phaser.Scene {
     this.lastGroundTime = 0
     this.currentPlatform = null
     this._onIceUntil = 0
-  this.lavaRiseBoost = 1
+    this.lavaRiseBoost = 1
 
     // Asegura la textura 1x1 para cualquier uso antes de crear emisores/misiles
     this.ensurePxTexture()
 
-  // Grupo de plataformas y fábrica
+    // Grupo de plataformas y fábrica
     this.platforms = this.physics.add.staticGroup()
-  this.platformFactory = new PlatformFactory(this)
+    this.platformFactory = new PlatformFactory(this)
 
     // Crear plataformas iniciales
-   const startOffset = Number(gameConfig?.platforms?.startYOffset) || 50
-  const gapAboveBase = Number(gameConfig?.platforms?.minGapAboveBase) || 40
-  const baseY = height - (startOffset + 10)
-  const baseX = width / 2
-  this.platformBaseX = baseX
-  const startY = baseY - gapAboveBase
+    const startOffset = Number(gameConfig?.platforms?.startYOffset) || 50
+    const gapAboveBase = Number(gameConfig?.platforms?.minGapAboveBase) || 40
+    const baseY = height - (startOffset + 10)
+    const baseX = width / 2
+    this.platformBaseX = baseX
+    const startY = baseY - gapAboveBase
     for (let i = 0; i < 12; i++) {
-  const x = this.pickSpawnX()
+      const x = this.pickSpawnX()
       const y = startY - i * 70
-  this.platformFactory.spawn(x, y, this.pickPlatformType())
-    } 
-  // Plataforma base bajo el jugador (siempre normal y sin movimiento)
-  this.platformFactory.spawn(baseX, baseY, 'normal', { noMove: true, allowBaseX: true, isBase: true })
-
-  // Límite global: no permitir spawns debajo de esta línea (por ejemplo, respawns)
-  this.platformSpawnMaxY = baseY - gapAboveBase
-
-  // Jugador y controlador (inicia justo por encima de la base)
-  this.playerCtrl = new PlayerController(this)
-  const playerStartY = baseY - 60
-  this.player = this.playerCtrl.create(baseX, playerStartY)
-  // Baseline dinámico para el contador de metros (arranca en 0)
-  this._metersBaselineY = this.player.y
-  // Reasignar estela para que siga al nuevo player tras restart
-  if (this.platformFactory?.constructor?.ensureTrailSystem) {
-    this.platformFactory.constructor.ensureTrailSystem(this)
-    const trail = this.playerTrail
-    const emitter = trail?.emitter
-    if (emitter) {
-      if (emitter.startFollow) emitter.startFollow(this.player)
-      emitter.manager?.setDepth?.((this.player.depth ?? 0) - 1)
-      if (emitter.setEmitZone) {
-        // no-op, solo asegurar API
-      }
-      emitter.on = true
-      emitter.emitting = true
-      if (emitter.resume) emitter.resume()
-      if (emitter.start) emitter.start()
+      this.platformFactory.spawn(x, y, this.pickPlatformType())
     }
-    if (trail) trail.following = true
-  }
+    // Plataforma base bajo el jugador (siempre normal y sin movimiento)
+    this.platformFactory.spawn(baseX, baseY, 'normal', { noMove: true, allowBaseX: true, isBase: true })
 
-  // Poderes temporales (instanciar después de crear al jugador)
-  this.powerManager = new PowerManager(this)
-  // Generar posibles poderes sobre las plataformas ya creadas
-  this.platforms.children.iterate(plat => {
-    try { this.powerManager?.maybeSpawnAbovePlatform?.(plat) } catch {}
-  })
+    // Límite global: no permitir spawns debajo de esta línea (por ejemplo, respawns)
+    this.platformSpawnMaxY = baseY - gapAboveBase
+
+    // Jugador y controlador (inicia justo por encima de la base)
+    this.playerCtrl = new PlayerController(this)
+    const playerStartY = baseY - 60
+    this.player = this.playerCtrl.create(baseX, playerStartY)
+    // Baseline dinámico para el contador de metros (arranca en 0)
+    this._metersBaselineY = this.player.y
+    // Reasignar estela para que siga al nuevo player tras restart
+    if (this.platformFactory?.constructor?.ensureTrailSystem) {
+      this.platformFactory.constructor.ensureTrailSystem(this)
+      const trail = this.playerTrail
+      const emitter = trail?.emitter
+      if (emitter) {
+        if (emitter.startFollow) emitter.startFollow(this.player)
+        emitter.manager?.setDepth?.((this.player.depth ?? 0) - 1)
+        if (emitter.setEmitZone) {
+          // no-op, solo asegurar API
+        }
+        emitter.on = true
+        emitter.emitting = true
+        if (emitter.resume) emitter.resume()
+        if (emitter.start) emitter.start()
+      }
+      if (trail) trail.following = true
+    }
+
+    // Poderes temporales (instanciar después de crear al jugador)
+    this.powerManager = new PowerManager(this)
+    // Generar posibles poderes sobre las plataformas ya creadas
+    this.platforms.children.iterate(plat => {
+      try { 
+        this.powerManager?.maybeSpawnAbovePlatform?.(plat)
+        // ...existing code...
+      } catch { }
+    })
 
     // Contador de metros ascendidos (texto normal estilo pixel art)
     this.metersText = this.add.text(12, 12, '0 m', {
@@ -174,14 +200,14 @@ export default class GameScene extends Phaser.Scene {
     this.metersText.setScrollFactor(0, 0)
     this.metersText.setDepth(1000)
 
-  // La colisión e input del jugador los maneja PlayerController
+    // La colisión e input del jugador los maneja PlayerController
 
-  // Cámara: reset al inicio y solo-subida (sin seguir hacia abajo)
-  this.cameras.main.stopFollow()
-  this.cameras.main.setScroll(0, 0)
-  this._cameraMinY = 0
+    // Cámara: reset al inicio y solo-subida (sin seguir hacia abajo)
+    this.cameras.main.stopFollow()
+    this.cameras.main.setScroll(0, 0)
+    this._cameraMinY = 0
 
-  // Lava visual (la muerte se decide con borde inferior de cámara)
+    // Lava visual (la muerte se decide con borde inferior de cámara)
     const lavaY = height - this.lavaHeight
     this.lava = this.add.tileSprite(0, lavaY, width, this.lavaHeight, 'lava')
       .setOrigin(0, 0)
@@ -190,7 +216,7 @@ export default class GameScene extends Phaser.Scene {
     // Partículas de lava: fuego y piedritas pixeladas (requiere 'px')
     this.createLavaParticles()
 
-  // Grupo de misiles y overlap (siempre)
+    // Grupo de misiles y overlap (siempre)
     this.lavaMissiles = this.physics.add.group()
     this.physics.add.overlap(
       this.player,
@@ -238,7 +264,7 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(800, () => (this.canLose = true))
 
     // Iniciar spawner tras el primer frame (evita carreras tras F5/reintentar)
-  this.events.once('postupdate', () => {
+    this.events.once('postupdate', () => {
       if (this.isLavaMissileEnabled()) this.startLavaMissileSpawner()
     })
 
@@ -250,16 +276,16 @@ export default class GameScene extends Phaser.Scene {
       this.clearLavaMissiles()
       this.lavaFlames?.destroy()
       this.lavaRocks?.destroy()
-  // Limpieza del controlador de jugador
-  this.playerCtrl?.destroy?.()
-  this.playerCtrl = null
-  this.powerManager?.deactivate?.()
-  this.powerManager = null
+      // Limpieza del controlador de jugador
+      this.playerCtrl?.destroy?.()
+      this.playerCtrl = null
+      this.powerManager?.deactivate?.()
+      this.powerManager = null
       // Quitar superficie de lava si existiera
       try {
         if (this.lavaSurfaceCollider) { this.physics.world.removeCollider(this.lavaSurfaceCollider); this.lavaSurfaceCollider = null }
-      } catch {}
-      try { this.lavaSurface?.destroy?.(); this.lavaSurface = null } catch {}
+      } catch { }
+      try { this.lavaSurface?.destroy?.(); this.lavaSurface = null } catch { }
     })
 
     // Inicializa estado de cruce de plataformas
@@ -299,24 +325,24 @@ export default class GameScene extends Phaser.Scene {
       g.fillStyle(0xf59e0b, 1);
       g.fillRect(60, 62, 8, 4);
       // Lava cayendo (animada)
-      this._volcanoLavaY += Phaser.Math.Between(1,3);
+      this._volcanoLavaY += Phaser.Math.Between(1, 3);
       if (this._volcanoLavaY > 84) this._volcanoLavaY = 68;
       g.fillStyle(0xf59e0b, 1);
       g.fillRect(64, this._volcanoLavaY, 4, 16);
       // Humo (animado)
-      this._volcanoHumoAlpha += Phaser.Math.FloatBetween(-0.01,0.01);
+      this._volcanoHumoAlpha += Phaser.Math.FloatBetween(-0.01, 0.01);
       this._volcanoHumoAlpha = Phaser.Math.Clamp(this._volcanoHumoAlpha, 0.35, 0.6);
       g.fillStyle(0xcccccc, this._volcanoHumoAlpha);
       g.fillRect(60, 52, 8, 8);
       g.generateTexture('volcano_bg', w, h);
       this.volcanoSprite.setTexture('volcano_bg');
     }
-  const width = this.scale.width
-  const height = this.scale.height
+    const width = this.scale.width
+    const height = this.scale.height
 
-  // Delega la lógica de movimiento/salto/wrap al controlador
-  this.playerCtrl?.update?.()
-  this.powerManager?.update?.()
+    // Delega la lógica de movimiento/salto/wrap al controlador
+    this.playerCtrl?.update?.()
+    this.powerManager?.update?.()
 
     // Generación y limpieza de plataformas
     const camY = this.cameras.main.worldView.y
@@ -338,12 +364,12 @@ export default class GameScene extends Phaser.Scene {
     while (realCount + 0 < 14) {
       const topY = this.getTopPlatformY()
       const newY = topY - Phaser.Math.Between(60, 100)
-  const newX = this.pickSpawnX()
+      const newX = this.pickSpawnX()
       this.platformFactory.spawn(newX, newY, this.pickPlatformType())
       break // añade de una en una por frame para evitar picos
     }
 
-  // La reubicación de escurridizas durante el ascenso la gestiona el controlador
+    // La reubicación de escurridizas durante el ascenso la gestiona el controlador
 
     // Scoring por cruce de plataformas
     this.platforms.children.iterate(plat => {
@@ -386,9 +412,9 @@ export default class GameScene extends Phaser.Scene {
       }
       if (!frozen) this.lava.tilePositionY -= 0.4
 
-  // Reposicionar emisores en el borde superior de la lava
-  if (this.lavaFlames) this.lavaFlames.setPosition(0, this.lava.y - 2)
-  if (this.lavaRocks) this.lavaRocks.setPosition(0, this.lava.y - 2)
+      // Reposicionar emisores en el borde superior de la lava
+      if (this.lavaFlames) this.lavaFlames.setPosition(0, this.lava.y - 2)
+      if (this.lavaRocks) this.lavaRocks.setPosition(0, this.lava.y - 2)
 
       // Mientras esté congelada, crear/actualizar una "superficie" física para caminar
       if (frozen) {
@@ -421,16 +447,16 @@ export default class GameScene extends Phaser.Scene {
         // Destruir superficie y su collider al descongelar
         try {
           if (this.lavaSurfaceCollider) this.physics.world.removeCollider(this.lavaSurfaceCollider)
-        } catch {}
+        } catch { }
         this.lavaSurfaceCollider = null
-        try { this.lavaSurface.destroy() } catch {}
+        try { this.lavaSurface.destroy() } catch { }
         this.lavaSurface = null
       }
     }
 
     // Muerte por lava: usar la lava visible (con margen) para evitar muertes tempranas
     // Si la lava está congelada, no matar (puede caminar sobre la superficie)
-  if (!this._ended && this.canLose && this.player && this.player.body && !(this.time.now <= (this.lavaFrozenUntil || 0))) {
+    if (!this._ended && this.canLose && this.player && this.player.body && !(this.time.now <= (this.lavaFrozenUntil || 0))) {
       const computedTop = this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset
       const visibleTop = this.lava ? this.lava.y : computedTop
       const killTop = Math.max(visibleTop, computedTop) + this.lavaKillMargin
@@ -638,8 +664,8 @@ export default class GameScene extends Phaser.Scene {
       this.playerCtrl.disable()
     } else if (this.playerCtrl) {
       // Si no existe método disable, desactiva el input y la física manualmente
-      try { this.playerCtrl.active = false } catch {}
-      try { if (this.player && this.player.body) this.player.body.enable = false } catch {}
+      try { this.playerCtrl.active = false } catch { }
+      try { if (this.player && this.player.body) this.player.body.enable = false } catch { }
     }
 
     this.best = Math.max(this.best, this.score)
@@ -670,7 +696,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
- 
+
 
   createTextures() {
     const g = this.make.graphics({ x: 0, y: 0, add: false })
@@ -736,7 +762,7 @@ export default class GameScene extends Phaser.Scene {
     g.strokeRoundedRect(10, 18, 12, 18, 6)
     g.generateTexture('thumb_up', hw, hh)
 
-  // Pixel blanco 1x1 (para partículas pixel-art)
+    // Pixel blanco 1x1 (para partículas pixel-art)
     g.clear()
     g.fillStyle(0xffffff, 1)
     g.fillRect(0, 0, 1, 1)
@@ -805,7 +831,7 @@ export default class GameScene extends Phaser.Scene {
           overlapX, overlapY
         }
       )
-    } catch {}
+    } catch { }
   }
 
   // NUEVO: dibuja AABBs de jugador (azul) y misil (rojo) durante ~1s
@@ -823,7 +849,7 @@ export default class GameScene extends Phaser.Scene {
       g.lineStyle(2, 0xef4444, 1)
       g.strokeRect(mb.left, mb.top, mb.width, mb.height)
       this.time.delayedCall(1000, () => g.clear())
-    } catch {}
+    } catch { }
   }
 
   // NUEVO: logs de muerte por lava con posiciones relevantes
@@ -837,7 +863,7 @@ export default class GameScene extends Phaser.Scene {
         killTop,
         margin: this.lavaKillMargin
       })
-    } catch {}
+    } catch { }
   }
 
   // NUEVO: dibuja la línea de muerte (killTop) en amarillo
@@ -853,7 +879,7 @@ export default class GameScene extends Phaser.Scene {
       g.lineTo(this.scale.width, y)
       g.strokePath()
       this.time.delayedCall(1000, () => g.clear())
-    } catch {}
+    } catch { }
   }
 
   // Limpia de forma segura el grupo de misiles evitando acceder a children inexistente
@@ -871,6 +897,12 @@ export default class GameScene extends Phaser.Scene {
       group.children.iterate(m => m && m.destroy())
     }
     this.lavaMissiles = null
+  }
+
+  playPowerSound() {
+    if (this.sonidoPower) {
+      this.sonidoPower.play()
+    }
   }
 }
 
