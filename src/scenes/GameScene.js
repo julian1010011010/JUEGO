@@ -7,6 +7,7 @@ import LavaParticle from '../effects/LavaParticle'
 import { playLavaDeath } from '../effects/playLavaDeath'
 import UserInfo from '../user/UserInfo' 
 import SoundFX from '../audio/SoundFX'
+import BackgroundFactory from '../backgrounds/BackgroundFactory' 
 
 // arriba del archivo
 export default class GameScene extends Phaser.Scene {
@@ -100,11 +101,10 @@ export default class GameScene extends Phaser.Scene {
     // Añade el fondo y guarda la referencia
     this.sfx = new SoundFX(this)
  
-    this.bgImage = this.add.image(0, 0, 'bg')
-  .setOrigin(0, 0)
-  .setDepth(-1)
-  .setDisplaySize(this.scale.width, this.scale.height);
-
+    // Usar BackgroundFactory
+    this.bgFactory = new BackgroundFactory(this, this.scale.width, this.scale.height, 8)
+    this.bgSprite = this.bgFactory.createAnimated('volcano_sr', { fps: 15   });
+    // Opción 1: fondo animado por sprites
  
 
     // Pausar/Reanudar al cambiar de foco (opcional)
