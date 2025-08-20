@@ -5,9 +5,9 @@ import PlayerController from '../player/PlayerController'
 import gameConfig from '../config/gameConfig'
 import LavaParticle from '../effects/LavaParticle'
 import { playLavaDeath } from '../effects/playLavaDeath'
-import UserInfo from '../user/UserInfo'
-import bgmUrl from '../audio/BackGroungSound.mp3'
-import soundPower from '../audio/Power.mp3'
+import UserInfo from '../user/UserInfo' 
+import SoundFX from '../audio/SoundFX'
+
 // arriba del archivo
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -77,29 +77,23 @@ export default class GameScene extends Phaser.Scene {
 
   preload() {
     // Corrige la carga del fondo
-    this.load.image('bg', 'src/sprites/fondo/1.png')
-    this.load.audio('bgm', bgmUrl)
-    this.load.audio('power', soundPower)
-
+    SoundFX.preload(this)
+    this.load.image('bg', 'src/sprites/fondo/1.png') 
+    this.load.audio('sfx-sonar', 'audio/sonar.mp3') // <-- Asegúrate de que el archivo exista en esta ruta
     this.createTextures();
     this.load.image('terminator', 'src/effects/images/terminator.png');
   }
 
   create() {
     // Añade el fondo y guarda la referencia
+this.sfx = new SoundFX(this)
+ 
 this.bgImage = this.add.image(0, 0, 'bg')
   .setOrigin(0, 0)
   .setDepth(-1)
   .setDisplaySize(this.scale.width, this.scale.height);
 
-    // Desbloquear y reproducir tras primer input
-    const tryPlay = () => {
-      if (!this.music.isPlaying) this.music.play()
-      this.input.off('pointerdown', tryPlay)
-      this.input.off('keydown', tryPlay)
-    }
-    this.input.on('pointerdown', tryPlay)
-    this.input.keyboard?.on('keydown', tryPlay)
+ 
 
     // Pausar/Reanudar al cambiar de foco (opcional)
     this.game.events.on(Phaser.Core.Events.BLUR, () => this.music?.pause())
@@ -530,6 +524,7 @@ this.bgImage = this.add.image(0, 0, 'bg')
 
   // Inicia o reinicia el temporizador de misiles con el delay configurado
   startLavaMissileSpawner() {
+
     // No crear ni mantener timers si está deshabilitado o sin delay válido
     if (!this.isLavaMissileEnabled()) {
       this._lavaMissileTimer?.remove(false)
@@ -660,6 +655,7 @@ this.bgImage = this.add.image(0, 0, 'bg')
   }
 
   gameOver(cause) {
+    this.sfx.gameOver(); // Reproduce el sonido de game over
     // Evita repeticiones de animación y lógica de muerte
     if (this._ended || this._playedLavaAnim) return
     this._ended = true
@@ -706,9 +702,7 @@ this.bgImage = this.add.image(0, 0, 'bg')
       showOverlay()
     }
   }
-
-
-
+ 
   createTextures() {
     const g = this.make.graphics({ x: 0, y: 0, add: false })
     // Jugador
@@ -904,6 +898,7 @@ this.bgImage = this.add.image(0, 0, 'bg')
 
   // Limpia de forma segura el grupo de misiles evitando acceder a children inexistente
   clearLavaMissiles() {
+ 
     const group = this.lavaMissiles
     if (!group) return
     const items = typeof group.getChildren === 'function'

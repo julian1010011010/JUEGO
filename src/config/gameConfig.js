@@ -34,13 +34,13 @@ const gameConfig = {
     // NUEVO: evitar crear plataformas alineadas con la base; radio en píxeles
     avoidBaseXRadius: 80,
     weights: {
-      normal: 0,
+      normal: 10,
       fragile: 0,
       timed: 0,
       ice: 0,
       dodger: 0,
       invertX: 0,
-      bouncy: 10,
+      bouncy: 0,
       inversa: 0,
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     },
