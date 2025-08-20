@@ -8,6 +8,7 @@ import { playLavaDeath } from '../effects/playLavaDeath'
 import UserInfo from '../user/UserInfo'
 import bgmUrl from '../audio/BackGroungSound.mp3'
 import soundPower from '../audio/Power.mp3'
+// arriba del archivo
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super('game')
@@ -75,16 +76,21 @@ export default class GameScene extends Phaser.Scene {
   }
 
   preload() {
-
-      this.load.audio('bgm', bgmUrl)
-      this.load.audio('power', soundPower)
+    // Corrige la carga del fondo
+    this.load.image('bg', 'src/sprites/fondo/1.png')
+    this.load.audio('bgm', bgmUrl)
+    this.load.audio('power', soundPower)
 
     this.createTextures();
     this.load.image('terminator', 'src/effects/images/terminator.png');
   }
 
   create() {
-    this.music = this.sound.add('bgm', { loop: true, volume: 0.5 }) 
+    // Añade el fondo y guarda la referencia
+this.bgImage = this.add.image(0, 0, 'bg')
+  .setOrigin(0, 0)
+  .setDepth(-1)
+  .setDisplaySize(this.scale.width, this.scale.height);
 
     // Desbloquear y reproducir tras primer input
     const tryPlay = () => {
@@ -492,6 +498,11 @@ export default class GameScene extends Phaser.Scene {
         this.gameOver('fall')
       }
     }
+
+    // Mantén el fondo siguiendo la cámara
+    if (this.bgImage) {
+      this.bgImage.y = this.cameras.main.scrollY
+    }
   }
 
   // relocateDodger ahora vive en PlayerController
@@ -737,12 +748,21 @@ export default class GameScene extends Phaser.Scene {
       g.fillPath()
     }
     // Puntos amarillos más aleatorios
-    g.fillStyle(0xf59e0b, 1)
+
+    
+    g.fillStyle(0xf5290b, 1)
     for (let i = 0; i < 12; i++) {
       const px = Phaser.Math.Between(4, w - 4) + Phaser.Math.Between(-2, 2)
       const py = Phaser.Math.Between(4, h - 4) + Phaser.Math.Between(-2, 2)
       g.fillCircle(px, py, Phaser.Math.Between(2, 4))
     }
+
+
+
+
+
+
+
     g.generateTexture('lava', w, h)
 
     // Pulgar arriba (simple)
@@ -905,4 +925,3 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 }
-
