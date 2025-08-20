@@ -85,10 +85,22 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Preguntar por nombre y edad si es la primera vez
+    this.userInfo = new UserInfo()
+
+    // Si no hay datos de usuario, espera el evento antes de continuar
+    if (!this.userInfo.data) {
+      document.addEventListener('user-info-ready', () => {
+        // Reinicia la escena para continuar el juego
+        this.scene.restart();
+      }, { once: true });
+      return; // No inicializar el juego aún
+    }
+
     // Añade el fondo y guarda la referencia
-this.sfx = new SoundFX(this)
+    this.sfx = new SoundFX(this)
  
-this.bgImage = this.add.image(0, 0, 'bg')
+    this.bgImage = this.add.image(0, 0, 'bg')
   .setOrigin(0, 0)
   .setDepth(-1)
   .setDisplaySize(this.scale.width, this.scale.height);
@@ -100,8 +112,7 @@ this.bgImage = this.add.image(0, 0, 'bg')
     this.game.events.on(Phaser.Core.Events.FOCUS, () => this.music?.resume())
 
     
-    // Preguntar por nombre y edad si es la primera vez
-    this.userInfo = new UserInfo()
+
 
     // Si quieres mostrar el nombre y edad en consola:
     // console.log(`Usuario: ${this.userInfo.getName()}, Edad: ${this.userInfo.getAge()}`)
@@ -299,6 +310,9 @@ this.bgImage = this.add.image(0, 0, 'bg')
   }
 
   update() {
+    // Evita ejecutar lógica si el juego no está inicializado
+    if (!this.platforms || !this.player) return;
+
     // Actualizar metros ascendidos
     if (this.metersText && this.player) {
       // Calcula la altura ascendida desde la posición inicial del jugador

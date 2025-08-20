@@ -108,9 +108,10 @@ export default class UserInfo {
         <div class="pixel-panel">
           <h3>Bienvenido a Lava Jump!</h3>
           <p style="margin-bottom:12px;color:#e2e8f0;">
-            Ayuda al personaje a saltar plataformas y escapar de la lava.<br>
+            Ayuda al ROCKO! a saltar plataformas y escapar de la lava.<br>
             Introduce tu nombre y edad para comenzar.
           </p>
+          <br>
           <form id="intro-user-form">
             <div class="pixel-field">
               <label class="pixel-label" for="intro-name">Nombre</label>
