@@ -154,7 +154,8 @@ export default class PlayerController {
       }
       if (best) this.relocateDodger(best)
 
-      this.player.setVelocityY(-520)
+      // Aumenta la fuerza de salto aquí (por ejemplo, de -520 a -650)
+      this.player.setVelocityY(-600)
 
       // Rompe frágil al despegar
       if (this.currentPlatform && this.currentPlatform.isFragile && !this.currentPlatform._broken) {
