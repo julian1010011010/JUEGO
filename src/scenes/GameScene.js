@@ -102,8 +102,16 @@ export default class GameScene extends Phaser.Scene {
     this.sfx = new SoundFX(this)
  
     // Usar BackgroundFactory
-    this.bgFactory = new BackgroundFactory(this, this.scale.width, this.scale.height, 8)
-    this.bgSprite = this.bgFactory.createAnimated('volcano_sr', { fps: 15   });
+    // 1) Instancia la fábrica
+    this.bg = new BackgroundFactory(this, this.scale.width, this.scale.height, 8)
+
+    // 2) Crea fondo (elige uno)
+    // this.bg.createBackground('volcano',    { mode:'animated', fps:12 })
+    this.bg.createBackground('volcano_sr', { mode:'animated', fps:12 })
+    // Parallax: this.bg.createBackground('volcano_sr', { mode:'parallax', layers:3 })
+
+    // 3) Partículas ambientales (opcional)
+    this.bg.createVolcanoAmbientParticles()
     // Opción 1: fondo animado por sprites
  
 

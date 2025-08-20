@@ -1,240 +1,272 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Ascenso - Prototipo (Pixel UI)</title>
-  <style>
-    /* ===========================
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
+    <title>Ascenso - Prototipo (Pixel UI)</title>
+    <style>
+      /* ===========================
        Pixel UI — Ajustes rápidos
        =========================== */
-    :root{
-      --bg-1:#0f1020;        /* fondo base */
-      --bg-2:#121329;        /* fondo profundo */
-      --accent:#6ee7b7;      /* verde HUD */
-      --accent-2:#ffe66d;    /* amarillo HUD */
-      --ink:#0a0a14;         /* texto oscuro */
-      --hud:#e2e8f0;         /* texto HUD */
-      --hud-2:#a5b4fc;       /* texto HUD 2 */
-      --danger:#ff4d6d;      /* rojo alerta */
-      --panel:#1b1d36;       /* panel overlay */
-      --grid:#1a1c33;        /* patrón */
-      --pixel:3px;           /* “tamaño de pixel” visual para marcos */
-      --scanlines-opacity:0.07; /* 0 = sin scanlines */
-    }
+      :root {
+        --bg-1: #0f1020; /* fondo base */
+        --bg-2: #121329; /* fondo profundo */
+        --accent: #6ee7b7; /* verde HUD */
+        --accent-2: #ffe66d; /* amarillo HUD */
+        --ink: #0a0a14; /* texto oscuro */
+        --hud: #e2e8f0; /* texto HUD */
+        --hud-2: #a5b4fc; /* texto HUD 2 */
+        --danger: #ff4d6d; /* rojo alerta */
+        --panel: #1b1d36; /* panel overlay */
+        --grid: #1a1c33; /* patrón */
+        --pixel: 3px; /* “tamaño de pixel” visual para marcos */
+        --scanlines-opacity: 0.07; /* 0 = sin scanlines */
+      }
 
-    /* Reset básico */
-    * { box-sizing: border-box; }
-    html, body { height:100%; }
-    html, body, #game { margin:0; padding:0; }
+      /* Reset básico */
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      html,
+      body,
+      #game {
+        margin: 0;
+        padding: 0;
+      }
 
-    /* Fondo retro con patrón y gradiente */
-    body{
-      background:
-        repeating-linear-gradient(135deg, var(--grid) 0 12px, transparent 12px 24px),
-        radial-gradient(1200px 800px at 50% 100%, var(--bg-2), var(--bg-1) 70%);
-      color: var(--hud);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      image-rendering: pixelated; /* fuerza look nítido en canvas/sprites */
-      position: relative;
-      overflow: hidden;
-    }
+      /* Fondo retro con patrón y gradiente */
+      body {
+        background: repeating-linear-gradient(
+            135deg,
+            var(--grid) 0 12px,
+            transparent 12px 24px
+          ),
+          radial-gradient(
+            1200px 800px at 50% 100%,
+            var(--bg-2),
+            var(--bg-1) 70%
+          );
+        color: var(--hud);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        image-rendering: pixelated; /* fuerza look nítido en canvas/sprites */
+        position: relative;
+        overflow: hidden;
+      }
 
-    /* Scanlines sutiles (opcional) */
-    body::after{
-      content:"";
-      position: fixed; inset: 0;
-      pointer-events: none;
-      background:
-        linear-gradient(
+      /* Scanlines sutiles (opcional) */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(
           to bottom,
-          rgba(0,0,0,0) 0,
-          rgba(0,0,0,var(--scanlines-opacity)) 50%,
-          rgba(255,255,255,0.03) 51%,
-          rgba(0,0,0,0) 100%
+          rgba(0, 0, 0, 0) 0,
+          rgba(0, 0, 0, var(--scanlines-opacity)) 50%,
+          rgba(255, 255, 255, 0.03) 51%,
+          rgba(0, 0, 0, 0) 100%
         );
-      background-size: 100% 3px;
-      mix-blend-mode: multiply;
-    }
+        background-size: 100% 3px;
+        mix-blend-mode: multiply;
+      }
 
-    /* Contenedor del juego (tu canvas va aquí) */
-    #game{
-      height:100%;
-      /* aseguramos “crisp pixels” si el motor inserta un <canvas> */
-      image-rendering: crisp-edges;
-      image-rendering: pixelated;
-      position: relative;
-      z-index: 0;
-    }
+      /* Contenedor del juego (tu canvas va aquí) */
+      #game {
+        height: 100%;
+        /* aseguramos “crisp pixels” si el motor inserta un <canvas> */
+        image-rendering: crisp-edges;
+        image-rendering: pixelated;
+        position: relative;
+        z-index: 0;
+      }
 
-    /* util: borde “pixel” con box-shadows escalonados */
-    .pixel-frame{
-      box-shadow:
-        0 0 0 var(--pixel) #000,
-        calc(var(--pixel)*1) calc(var(--pixel)*1) 0 0 #000,
-        calc(var(--pixel)*2) calc(var(--pixel)*2) 0 0 rgba(0,0,0,.35);
-      outline: var(--pixel) solid #000;
-    }
+      /* util: borde “pixel” con box-shadows escalonados */
+      .pixel-frame {
+        box-shadow: 0 0 0 var(--pixel) #000,
+          calc(var(--pixel) * 1) calc(var(--pixel) * 1) 0 0 #000,
+          calc(var(--pixel) * 2) calc(var(--pixel) * 2) 0 0 rgba(0, 0, 0, 0.35);
+        outline: var(--pixel) solid #000;
+      }
 
-    /* HUD: marcador centrado estilo cartucho */
-    .score{
-      position: fixed;
-      top: 12px; left: 50%; transform: translateX(-50%);
-      color: var(--hud);
-      font-weight: 900;
-      letter-spacing: 1px;
-      background: linear-gradient(#0e1128,#0a0c20);
-      padding: calc(var(--pixel)*2) calc(var(--pixel)*4);
-      border: var(--pixel) solid #000;
-      box-shadow:
-        0 var(--pixel) 0 0 #000,
-        0 calc(var(--pixel)*2) 0 0 rgba(0,0,0,.35);
-      text-shadow:
-        0 var(--pixel) 0 #000,
-        calc(var(--pixel)*-1) 0 0 #000,
-        calc(var(--pixel)*1) 0 0 #000;
-      z-index: 2;
-    }
+      /* HUD: marcador centrado estilo cartucho */
+      .score {
+        position: fixed;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--hud);
+        font-weight: 900;
+        letter-spacing: 1px;
+        background: linear-gradient(#0e1128, #0a0c20);
+        padding: calc(var(--pixel) * 2) calc(var(--pixel) * 4);
+        border: var(--pixel) solid #000;
+        box-shadow: 0 var(--pixel) 0 0 #000,
+          0 calc(var(--pixel) * 2) 0 0 rgba(0, 0, 0, 0.35);
+        text-shadow: 0 var(--pixel) 0 #000, calc(var(--pixel) * -1) 0 0 #000,
+          calc(var(--pixel) * 1) 0 0 #000;
+        z-index: 2;
+      }
 
-    /* HUD: temporizador esquina superior derecha */
-    .timer{
-      position: fixed;
-      top: 12px; right: 12px;
-      color: var(--hud-2);
-      font-weight: 800;
-      padding: calc(var(--pixel)*2) calc(var(--pixel)*3);
-      border: var(--pixel) solid #000;
-      background: #141735;
-      box-shadow:
-        0 var(--pixel) 0 0 #000,
-        0 calc(var(--pixel)*2) 0 0 rgba(0,0,0,.35);
-      z-index: 2;
-    }
+      /* HUD: temporizador esquina superior derecha */
+      .timer {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        color: var(--hud-2);
+        font-weight: 800;
+        padding: calc(var(--pixel) * 2) calc(var(--pixel) * 3);
+        border: var(--pixel) solid #000;
+        background: #141735;
+        box-shadow: 0 var(--pixel) 0 0 #000,
+          0 calc(var(--pixel) * 2) 0 0 rgba(0, 0, 0, 0.35);
+        z-index: 2;
+      }
 
-    /* Overlay Game Over */
-    #overlay{
-      position: fixed; inset: 0;
-      display: none; /* lo controla tu JS */
-      align-items: center; justify-content: center;
-      background:
-        radial-gradient(80% 80% at 50% 50%, rgba(0,0,0,.75), rgba(0,0,0,.9));
-      z-index: 5;
-      padding: 16px;
-    }
+      /* Overlay Game Over */
+      #overlay {
+        position: fixed;
+        inset: 0;
+        display: none; /* lo controla tu JS */
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(
+          80% 80% at 50% 50%,
+          rgba(0, 0, 0, 0.75),
+          rgba(0, 0, 0, 0.9)
+        );
+        z-index: 5;
+        padding: 16px;
+      }
 
-    #overlay .panel{
-      text-align: center;
-      background: linear-gradient(#202342,#181a34);
-      color: #fff;
-      border: var(--pixel) solid #000;
-      padding: calc(var(--pixel)*6) calc(var(--pixel)*8);
-      box-shadow:
-        0 0 0 var(--pixel) #000,
-        calc(var(--pixel)*2) calc(var(--pixel)*2) 0 0 rgba(0,0,0,.5);
-      max-width: 520px;
-      width: min(92vw, 520px);
-      position: relative;
-    }
+      #overlay .panel {
+        text-align: center;
+        background: linear-gradient(#202342, #181a34);
+        color: #fff;
+        border: var(--pixel) solid #000;
+        padding: calc(var(--pixel) * 6) calc(var(--pixel) * 8);
+        box-shadow: 0 0 0 var(--pixel) #000,
+          calc(var(--pixel) * 2) calc(var(--pixel) * 2) 0 0 rgba(0, 0, 0, 0.5);
+        max-width: 520px;
+        width: min(92vw, 520px);
+        position: relative;
+      }
 
-    #overlay .panel::before,
-    #overlay .panel::after{
-      content:"";
-      position:absolute;
-      inset: calc(var(--pixel)*-3);
-      border: var(--pixel) solid #000;
-      pointer-events:none;
-    }
-    #overlay .panel::after{
-      inset: calc(var(--pixel)*-6);
-      opacity:.6;
-    }
+      #overlay .panel::before,
+      #overlay .panel::after {
+        content: "";
+        position: absolute;
+        inset: calc(var(--pixel) * -3);
+        border: var(--pixel) solid #000;
+        pointer-events: none;
+      }
+      #overlay .panel::after {
+        inset: calc(var(--pixel) * -6);
+        opacity: 0.6;
+      }
 
-    #overlay h2{
-      margin: 0 0 12px 0;
-      font-size: 18px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--accent-2);
-      text-shadow:
-        0 var(--pixel) 0 #000,
-        var(--pixel) 0 0 #000,
-        calc(var(--pixel)*-1) 0 0 #000;
-    }
+      #overlay h2 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--accent-2);
+        text-shadow: 0 var(--pixel) 0 #000, var(--pixel) 0 0 #000,
+          calc(var(--pixel) * -1) 0 0 #000;
+      }
 
-    #final{ margin: 6px 0 10px 0; opacity:.95; }
+      #final {
+        margin: 6px 0 10px 0;
+        opacity: 0.95;
+      }
 
-    /* Botón estilo cartucho 8-bit */
-    button{
-      -webkit-tap-highlight-color: transparent;
-      cursor: pointer;
-      padding: calc(var(--pixel)*3) calc(var(--pixel)*5);
-      font-size: 14px;
-      font-weight: 900;
-      letter-spacing: 1px;
-      color: var(--ink);
-      background:
-        linear-gradient(#9ff5d7, var(--accent));
-      border: var(--pixel) solid #000;
-      box-shadow:
-        0 var(--pixel) 0 0 #000,
-        0 calc(var(--pixel)*2) 0 0 rgba(0,0,0,.35),
-        inset 0 calc(var(--pixel)*-1) 0 0 rgba(255,255,255,.25);
-      text-transform: uppercase;
-      image-rendering: pixelated;
-    }
+      /* Botón estilo cartucho 8-bit */
+      button {
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+        padding: calc(var(--pixel) * 3) calc(var(--pixel) * 5);
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: 1px;
+        color: var(--ink);
+        background: linear-gradient(#9ff5d7, var(--accent));
+        border: var(--pixel) solid #000;
+        box-shadow: 0 var(--pixel) 0 0 #000,
+          0 calc(var(--pixel) * 2) 0 0 rgba(0, 0, 0, 0.35),
+          inset 0 calc(var(--pixel) * -1) 0 0 rgba(255, 255, 255, 0.25);
+        text-transform: uppercase;
+        image-rendering: pixelated;
+      }
 
-    button:hover{
-      filter: saturate(1.2) brightness(1.05);
-      transform: translateY(calc(var(--pixel)*-1));
-    }
+      button:hover {
+        filter: saturate(1.2) brightness(1.05);
+        transform: translateY(calc(var(--pixel) * -1));
+      }
 
-    button:active{
-      transform: translateY(0);
-      box-shadow:
-        0 var(--pixel) 0 0 #000,
-        inset 0 calc(var(--pixel)*1) 0 0 rgba(0,0,0,.2);
-    }
+      button:active {
+        transform: translateY(0);
+        box-shadow: 0 var(--pixel) 0 0 #000,
+          inset 0 calc(var(--pixel) * 1) 0 0 rgba(0, 0, 0, 0.2);
+      }
 
-    /* Cursor retro */
-    body, button { cursor: crosshair; }
+      /* Cursor retro */
+      body,
+      button {
+        cursor: crosshair;
+      }
 
-    /* Ayuda de controles */
-    .help{
-      font-size: 12px; opacity:.8; margin-top: 12px;
-      color: #cbd5e1;
-      text-shadow: 0 var(--pixel) 0 #000;
-    }
+      /* Ayuda de controles */
+      .help {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-top: 12px;
+        color: #cbd5e1;
+        text-shadow: 0 var(--pixel) 0 #000;
+      }
 
-    /* Accesibilidad: modo alto contraste si reduce motion */
-    @media (prefers-reduced-motion: reduce){
-      button, .score, .timer { transition:none; }
-    }
+      /* Accesibilidad: modo alto contraste si reduce motion */
+      @media (prefers-reduced-motion: reduce) {
+        button,
+        .score,
+        .timer {
+          transition: none;
+        }
+      }
 
-    /* Soporte canvas dentro de #game */
-    #game canvas{
-      image-rendering: pixelated !important;
-      image-rendering: crisp-edges !important;
-      -ms-interpolation-mode: nearest-neighbor;
-    }
-  </style>
-</head>
-<body>
-  <div id="game"></div>
+      /* Soporte canvas dentro de #game */
+      #game canvas {
+        image-rendering: pixelated !important;
+        image-rendering: crisp-edges !important;
+        -ms-interpolation-mode: nearest-neighbor;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
 
-  <div class="score" id="score">000000</div>
-  <div class="timer" id="timer">00:00</div>
+    <div class="score" id="score">000000</div>
+    <div class="timer" id="timer">00:00</div>
 
-  <div id="overlay">
-    <div class="panel pixel-frame">
-      <h2>Juego terminado</h2>
-      <div id="final">Puntaje: <strong>000000</strong></div>
-      <div style="margin-top:12px">
-        <button id="restart">Reintentar</button>
+    <div id="overlay">
+      <div class="panel pixel-frame">
+        <h2>Juego terminado</h2>
+        <div id="final">Puntaje: <strong>000000</strong></div>
+        <div style="margin-top: 12px">
+          <button id="restart">Reintentar</button>
+        </div>
+        <p class="help">
+          Controles: Flechas ← → o tocar izquierda/derecha para moverse <br />
+          Barra espaciadora o ↑ para saltar
+        </p>
       </div>
-      <p class="help">Controles: toca izquierda/derecha o usa ← →</p>
     </div>
-  </div>
 
-  <script type="module" src="/src/main.js"></script>
-</body>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>

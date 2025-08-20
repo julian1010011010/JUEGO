@@ -1,18 +1,18 @@
 export default class UserInfo {
   constructor() {
-    this.key = 'user_info'
-    this.ensureIntroStyles() // << añade el CSS del panel/overlay de intro
-    this.data = this.load()
+    this.key = "user_info";
+    this.ensureIntroStyles(); // << añade el CSS del panel/overlay de intro
+    this.data = this.load();
     if (!this.data) {
-      this.data = null
-      this.showIntroForm()
+      this.data = null;
+      this.showIntroForm();
     }
   }
 
   ensureIntroStyles() {
-    if (document.getElementById('intro-form-styles')) return
-    const style = document.createElement('style')
-    style.id = 'intro-form-styles'
+    if (document.getElementById("intro-form-styles")) return;
+    const style = document.createElement("style");
+    style.id = "intro-form-styles";
     style.textContent = `
       /* Overlay propio para el intro (no interfiere con el del juego) */
       #intro-form.pixel-overlay{
@@ -93,24 +93,30 @@ export default class UserInfo {
         margin-top:6px; font-size:12px; color: var(--danger, #ff4d6d);
         text-shadow: 0 var(--pixel, 3px) 0 #000; display:none;
       }
-    `
-    document.head.appendChild(style)
+    `;
+    document.head.appendChild(style);
   }
 
   showIntroForm() {
     // Crea el contenedor si no existe
-    let introDiv = document.getElementById('intro-form')
+    let introDiv = document.getElementById("intro-form");
     if (!introDiv) {
-      introDiv = document.createElement('div')
-      introDiv.id = 'intro-form'
-      introDiv.className = 'pixel-overlay' // << overlay propio con fondo diferenciado
+      introDiv = document.createElement("div");
+      introDiv.id = "intro-form";
+      introDiv.className = "pixel-overlay"; // << overlay propio con fondo diferenciado
       introDiv.innerHTML = `
         <div class="pixel-panel">
           <h3>Bienvenido a Lava Jump!</h3>
           <p style="margin-bottom:12px;color:#e2e8f0;">
             Ayuda al ROCKO! a saltar plataformas y escapar de la lava.<br>
             Introduce tu nombre y edad para comenzar.
+<br><br><br>
+        Controles:
+ Flechas ← → o tocar izquierda/derecha para moverse
+ Barra espaciadora o ↑ para saltar
           </p>
+
+
           <br>
           <form id="intro-user-form">
             <div class="pixel-field">
@@ -127,53 +133,59 @@ export default class UserInfo {
             <div class="pixel-error"></div>
           </form>
         </div>
-      `
-      document.body.appendChild(introDiv)
+      `;
+      document.body.appendChild(introDiv);
     }
 
     // Maneja el envío del formulario
-    const form = introDiv.querySelector('#intro-user-form')
-    const errorBox = form.querySelector('.pixel-error')
+    const form = introDiv.querySelector("#intro-user-form");
+    const errorBox = form.querySelector(".pixel-error");
     form.onsubmit = (e) => {
-      e.preventDefault()
-      errorBox.style.display = 'none'
-      const name = form.querySelector('#intro-name').value.trim()
-      const age = Number(form.querySelector('#intro-age').value)
+      e.preventDefault();
+      errorBox.style.display = "none";
+      const name = form.querySelector("#intro-name").value.trim();
+      const age = Number(form.querySelector("#intro-age").value);
       if (!name) {
-        errorBox.textContent = 'El nombre es obligatorio.'
-        errorBox.style.display = 'block'
-        return
+        errorBox.textContent = "El nombre es obligatorio.";
+        errorBox.style.display = "block";
+        return;
       }
       if (!age || isNaN(age) || age <= 0) {
-        errorBox.textContent = 'Por favor, introduce una edad válida.'
-        errorBox.style.display = 'block'
-        return
+        errorBox.textContent = "Por favor, introduce una edad válida.";
+        errorBox.style.display = "block";
+        return;
       }
-      this.data = { name, age }
-      this.save()
-      introDiv.remove()
-      document.dispatchEvent(new CustomEvent('user-info-ready', { detail: this.data }))
-    }
+      this.data = { name, age };
+      this.save();
+      introDiv.remove();
+      document.dispatchEvent(
+        new CustomEvent("user-info-ready", { detail: this.data })
+      );
+    };
 
     // UX: foco inicial en nombre
-    const nameInput = introDiv.querySelector('#intro-name')
-    setTimeout(()=> nameInput?.focus(), 0)
+    const nameInput = introDiv.querySelector("#intro-name");
+    setTimeout(() => nameInput?.focus(), 0);
   }
 
   save() {
-    localStorage.setItem(this.key, JSON.stringify(this.data))
+    localStorage.setItem(this.key, JSON.stringify(this.data));
   }
 
   load() {
     try {
-      const raw = localStorage.getItem(this.key)
-      if (!raw) return null
-      return JSON.parse(raw)
+      const raw = localStorage.getItem(this.key);
+      if (!raw) return null;
+      return JSON.parse(raw);
     } catch {
-      return null
+      return null;
     }
   }
 
-  getName() { return this.data?.name ?? '' }
-  getAge()  { return this.data?.age ?? '' }
+  getName() {
+    return this.data?.name ?? "";
+  }
+  getAge() {
+    return this.data?.age ?? "";
+  }
 }
