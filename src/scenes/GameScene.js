@@ -391,7 +391,7 @@ this.bgImage = this.add.image(0, 0, 'bg')
     // HUD
     if (this.scoreText) {
       const nombre = this.userInfo?.getName?.() || ''
-      this.scoreText.textContent = `Puntos: ${this.score} (Récord: ${this.best}) — ${nombre}`
+      this.scoreText.textContent = `Score: ${this.score} (Max: ${this.best})`
     }
     if (this.timerEl) {
       const secs = Math.floor((this.time.now - this.startTime) / 1000)
