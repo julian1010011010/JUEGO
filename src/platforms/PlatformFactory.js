@@ -528,7 +528,7 @@ export default class PlatformFactory {
    */
   applyBouncyBehavior(scene, plat) {
     PlatformFactory.applyTypeMeta(plat, 'bouncy')
-  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
+    if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint()
     plat.setAlpha(0.6)
 
     PlatformFactory.ensurePxTexture(scene)
@@ -556,9 +556,18 @@ export default class PlatformFactory {
           )
           const boost = baseJump * 3
           player.setVelocityY?.(-boost)
+
+          // --- AJUSTE DE VELOCIDAD DE LAVA COMO NO-GRAVITY ---
+          const lavaBoost = Number(gameConfig?.powers?.noGravity?.lavaRiseBoost)
+          if (isFinite(lavaBoost) && lavaBoost > 0) {
+            scene.lavaRiseBoost = Math.max(1, lavaBoost, scene.lavaRiseBoost || 1)
+          }
+          // ---------------------------------------------------
+
           // Activar modo fantasma temporal para atravesar desde abajo y caer encima
           const ghostMs = 600
           player._ghostUntil = scene.time.now + ghostMs
+
           // Feedback visual sutil: brillo y alpha
           try {
             player.setTintFill?.(0x88ffffff)

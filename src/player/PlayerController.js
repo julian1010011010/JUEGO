@@ -154,7 +154,7 @@ export default class PlayerController {
       }
       if (best) this.relocateDodger(best)
 
-      this.player.setVelocityY(-520)
+      this.player.setVelocityY(-620)
 
       // Rompe frágil al despegar
       if (this.currentPlatform && this.currentPlatform.isFragile && !this.currentPlatform._broken) {

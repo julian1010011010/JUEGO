@@ -2,7 +2,7 @@ const gameConfig = {
   // Frecuencia de misiles de lava (en milisegundos)
   lavaMissiles: {
     // NUEVO: habilitar/deshabilitar completamente los misiles de lava
-    enabled: true,
+    enabled: false,
 
     // NUEVO: tasa de generación por minuto (si se define, ignora intervalSeconds/intervalMs)
     ratePerMinute: 0, // 0 para desactivar
@@ -34,14 +34,14 @@ const gameConfig = {
     // NUEVO: evitar crear plataformas alineadas con la base; radio en píxeles
     avoidBaseXRadius: 80,
     weights: {
-      normal: 10,
-      fragile: 10,
-      timed: 10,
-      ice: 10,
-      dodger: 10,
-      invertX: 10,
+      normal: 0,
+      fragile: 0,
+      timed: 0,
+      ice: 0,
+      dodger: 0,
+      invertX: 0,
       bouncy: 10,
-      inversa: 10,
+      inversa: 0,
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     },
   },
@@ -50,7 +50,7 @@ const gameConfig = {
   powers: {
     enabled: true,
     // Probabilidad de generar un poder por plataforma creada (0–1)
-    spawnChancePerPlatform: 1.1,
+    spawnChancePerPlatform: 0.1,
     // Ventana de aviso antes de expirar el poder (ms): parpadeo rápido
     warningMs: 500,
     // Pesos de aparicion por tipo
