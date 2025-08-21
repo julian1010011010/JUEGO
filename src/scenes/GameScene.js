@@ -378,7 +378,7 @@ export default class GameScene extends Phaser.Scene {
 
 
       // Mostrar LadyLava y activar misiles al pasar 500  metros
-      if (metros > 1 && !this.ladyLavaSprite.visible) {
+      if (metros > 200 && !this.ladyLavaSprite.visible) {
         this.firstLevel();
       }
     }
@@ -535,7 +535,9 @@ export default class GameScene extends Phaser.Scene {
       const targetY =
         this.cameras.main.scrollY + height - this.lavaHeight - this.lavaOffset;
       const currentY = this.lava.y;
-      if (!frozen && targetY < currentY) {
+
+
+if (targetY < currentY) {
         const boost =
           this.lavaRiseBoost && this.lavaRiseBoost > 0 ? this.lavaRiseBoost : 1;
         const maxStep =
