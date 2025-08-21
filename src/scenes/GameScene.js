@@ -88,11 +88,11 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     // Corrige la carga del fondo
     SoundFX.preload(this);
-    this.load.image("bg", "src/sprites/fondo/1.png");
-    this.load.audio("sfx-sonar", "audio/sonar.mp3"); // <-- Asegúrate de que el archivo exista en esta ruta
+    this.load.image("bg", "assets/sprites/fondo/1.png");
+    this.load.audio("sfx-sonar", "assets/audio/sonar.mp3"); // <-- Cambiado a assets/audio/
     this.createTextures();
-    this.load.image("terminator", "src/effects/images/terminator.png");
-    preloadLadyLava(this);
+    this.load.image("terminator", "assets/images/terminator.png");
+    preloadLadyLava(this); // Si ladyLava usa rutas internas, revisa ese archivo también
   }
 
   create() {
@@ -1089,7 +1089,7 @@ export default class GameScene extends Phaser.Scene {
         this._debugG = this.add.graphics().setDepth(10000);
       }
       const g = this._debugG;
-      g.clear();
+     
       // jugador
       g.lineStyle(2, 0x3b82f6, 1);
       g.strokeRect(pb.left, pb.top, pb.width, pb.height);

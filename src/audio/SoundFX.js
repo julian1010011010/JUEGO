@@ -10,18 +10,14 @@ export default class SoundFX {
    */
   static preload(scene) {
     // Efectos
-    scene.load.audio('sfx-sonar', '../src/audio/lava/sonar.mp3');
-
-    scene.load.audio('game-over', '../src/audio/game/gameOver.mp3');
-
-    scene.load.audio('jump', '../src/audio/player/jump.mp3');
-
+    scene.load.audio('sfx-sonar', '../assets/audio/lava/sonar.mp3');
+    scene.load.audio('game-over', '../assets/audio/game/gameOver.mp3');
+    scene.load.audio('jump', '../assets/audio/player/jump.mp3');
     // Si tienes más efectos, regístralos acá:
     // scene.load.audio('sfx-jump', 'audio/jump.mp3');
     // scene.load.audio('sfx-power', 'audio/Power.mp3');
-
     // Música de fondo (opcional, por si quieres manejarla desde otra clase)
-    scene.load.audio('bgm', '../src/audio/BackGroungSound.mp3');
+    scene.load.audio('bgm', '../assets/audio/BackGroundSound.mp3');
   }
 
   /**

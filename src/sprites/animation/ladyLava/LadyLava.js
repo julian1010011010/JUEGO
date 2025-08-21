@@ -1,14 +1,13 @@
 // src/sprites/animation/LadyLava/LadyLava.js
 
 export function preloadLadyLava(scene) {
-  const url = (rel) => new URL(rel, import.meta.url).href; // resuelve relativo al archivo
-
-  scene.load.image('ladyLava_1', url('../../Boss/LadyLava/1.png'));
-  scene.load.image('ladyLava_2', url('../../Boss/LadyLava/2.png'));
-  scene.load.image('ladyLava_3', url('../../Boss/LadyLava/3.png'));
-  scene.load.image('ladyLava_4', url('../../Boss/LadyLava/4.png'));
-  scene.load.image('ladyLava_5', url('../../Boss/LadyLava/5.png'));
-  scene.load.image('ladyLava_6', url('../../Boss/LadyLava/6.png'));
+  // Usa rutas relativas estáticas compatibles con Phaser
+  scene.load.image('ladyLava_1', 'assets/sprites/Boss/LadyLava/1.png');
+  scene.load.image('ladyLava_2', 'assets/sprites/Boss/LadyLava/2.png');
+  scene.load.image('ladyLava_3', 'assets/sprites/Boss/LadyLava/3.png');
+  scene.load.image('ladyLava_4', 'assets/sprites/Boss/LadyLava/4.png');
+  scene.load.image('ladyLava_5', 'assets/sprites/Boss/LadyLava/5.png');
+  scene.load.image('ladyLava_6', 'assets/sprites/Boss/LadyLava/6.png');
 }
 
 export function createLadyLavaAnimation(scene, { key = 'ladyLava_walk', frameRate = 4 } = {}) {
