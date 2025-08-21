@@ -12,12 +12,12 @@ import {
   preloadLadyLava,
   createLadyLavaAnimation,
 } from "../sprites/animation/LadyLava/ladyLava.js";
+import { LadyLavaText } from "../ui/LadyLavaText.js";
 
 // arriba del archivo
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super("game");
-
 
     //#region Variables
     // Entidades y estado base
@@ -135,11 +135,14 @@ export default class GameScene extends Phaser.Scene {
 
     // 3) Animación de LadyLava (crea si no existe)
     const walkKey = createLadyLavaAnimation(this);
-    this.ladyLavaSprite = this.add.sprite(
-      this.scale.width / 2,
-      this.scale.height - this.lavaHeight - 40,
-      "ladyLava_1"
-    ).setDepth(0).setVisible(false);
+    this.ladyLavaSprite = this.add
+      .sprite(
+        this.scale.width / 2,
+        this.scale.height - this.lavaHeight - 40,
+        "ladyLava_1"
+      )
+      .setDepth(0)
+      .setVisible(false);
     this.ladyLavaSprite.play(walkKey);
 
     // Pausar/Reanudar al cambiar de foco (opcional)
@@ -360,27 +363,30 @@ export default class GameScene extends Phaser.Scene {
 
     // Cronómetro
     this.startTime = this.time.now;
+
+    // NUEVO: Instancia de LadyLavaText
+    this.ladyLavaText = new LadyLavaText(this);
   }
 
   update() {
- 
     if (!this.platforms || !this.player) return;
 
     // Mostrar LadyLava y activar misiles al pasar 100 metros
     if (this.metersText && this.player) {
-        const baseY = this._metersBaselineY ?? this.scale.height - 120;
-        const metros = Math.max(0, Math.round((baseY - this.player.y) / 10));
-        this.metersText.setText(`${metros} m`);
+      const baseY = this._metersBaselineY ?? this.scale.height - 120;
+      const metros = Math.max(0, Math.round((baseY - this.player.y) / 10));
+      this.metersText.setText(`${metros} m`);
 
-        if (metros > 100 && !this.ladyLavaSprite.visible) {
-            this.ladyLavaSprite.setVisible(true);
-            // Activa los misiles de lava en la config global
-            import('../config/gameConfig.js').then(mod => {
-                mod.default.lavaMissiles.enabled = true;
-                // Inicia el spawner si aún no está activo
-                if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
-            });
-        }
+      if (metros > 100 && !this.ladyLavaSprite.visible) {
+        this.ladyLavaSprite.setVisible(true);
+        this.ladyLavaText.showIntro();
+        // Activa los misiles de lava en la config global
+        import("../config/gameConfig.js").then((mod) => {
+          mod.default.lavaMissiles.enabled = true;
+          // Inicia el spawner si aún no está activo
+          if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
+        });
+      }
     }
 
     if (this.ladyLavaSprite && this.lava && this.ladyLavaSprite.visible) {
@@ -1069,11 +1075,5 @@ export default class GameScene extends Phaser.Scene {
       group.children.iterate((m) => m && m.destroy());
     }
     this.lavaMissiles = null;
-  }
-
-  playPowerSound() {
-    if (this.sonidoPower) {
-      this.sonidoPower.play();
-    }
   }
 }
