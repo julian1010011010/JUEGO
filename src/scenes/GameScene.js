@@ -35,7 +35,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Lava (visual) y muerte
     this.lavaHeight = 56;
-    this.lavaRiseSpeed = 120;
+    this.lavaRiseSpeed = 175;
     this.lavaOffset = 0;
     // this.lavaKillMargin = 3
     this.lavaKillMargin = gameConfig?.lava?.killMargin ?? 6;
@@ -377,8 +377,8 @@ export default class GameScene extends Phaser.Scene {
       this.metersText.setText(`${metros} m`);
 
 
-      // Mostrar LadyLava y activar misiles al pasar 100   metros
-      if (metros > 100 && !this.ladyLavaSprite.visible) {
+      // Mostrar LadyLava y activar misiles al pasar 500  metros
+      if (metros > 500 && !this.ladyLavaSprite.visible) {
         this.firstLevel();
       }
     }
@@ -393,8 +393,7 @@ export default class GameScene extends Phaser.Scene {
     this.ladyLavaText.showIntro(() => {
       this.physics.resume();
       // Activa los misiles de lava en la config global
-      import("../config/gameConfig.js").then((mod) => {
-        mod.default.lavaMissiles.enabled = true;
+      import("../config/gameConfig.js").then((mod) => {  
         mod.default.platforms.weights.fragile = 10;
         mod.default.platforms.weights.normal = 0;
         if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
@@ -402,10 +401,24 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  update() {
+  update() { 
     if (!this.platforms || !this.player) return;
 
     this.LevelControl();
+
+    // Ajusta la velocidad de subida de la lava dinámicamente según la velocidad del jugador
+    if (this.lava && this.player && this.player.body) {
+      // Calcula la velocidad vertical del jugador (negativo = subiendo)
+      const playerVy = this.player.body.velocity.y;
+      // Si el jugador está subiendo rápido (doble salto), acelera la lava
+      if (playerVy < -400) {
+        this.lavaRiseBoost = 2.5; // sube más rápido
+      } else if (playerVy < -200) {
+        this.lavaRiseBoost = 1.5;
+      } else {
+        this.lavaRiseBoost = 1;
+      }
+    }
 
     if (this.ladyLavaSprite && this.lava && this.ladyLavaSprite.visible) {
       this.ladyLavaSprite.y = this.lava.y - 40;
