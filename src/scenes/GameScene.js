@@ -137,9 +137,9 @@ export default class GameScene extends Phaser.Scene {
     const walkKey = createLadyLavaAnimation(this);
     this.ladyLavaSprite = this.add.sprite(
       this.scale.width / 2,
-      this.scale.height - this.lavaHeight - 40, // <-- sube el personaje 40 píxeles
+      this.scale.height - this.lavaHeight - 40,
       "ladyLava_1"
-    ).setDepth(0);
+    ).setDepth(0).setVisible(false);
     this.ladyLavaSprite.play(walkKey);
 
     // Pausar/Reanudar al cambiar de foco (opcional)
@@ -366,17 +366,27 @@ export default class GameScene extends Phaser.Scene {
  
     if (!this.platforms || !this.player) return;
 
-    if (this.ladyLavaSprite && this.lava) {
-      this.ladyLavaSprite.y = this.lava.y - 20;
+    // Mostrar LadyLava y activar misiles al pasar 100 metros
+    if (this.metersText && this.player) {
+        const baseY = this._metersBaselineY ?? this.scale.height - 120;
+        const metros = Math.max(0, Math.round((baseY - this.player.y) / 10));
+        this.metersText.setText(`${metros} m`);
+
+        if (metros > 100 && !this.ladyLavaSprite.visible) {
+            this.ladyLavaSprite.setVisible(true);
+            // Activa los misiles de lava en la config global
+            import('../config/gameConfig.js').then(mod => {
+                mod.default.lavaMissiles.enabled = true;
+                // Inicia el spawner si aún no está activo
+                if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
+            });
+        }
     }
 
-    // Actualizar metros ascendidos
-    if (this.metersText && this.player) {
-      // Calcula la altura ascendida desde la posición inicial del jugador
-      const baseY = this._metersBaselineY ?? this.scale.height - 120;
-      const metros = Math.max(0, Math.round((baseY - this.player.y) / 10));
-      this.metersText.setText(`${metros} m`);
+    if (this.ladyLavaSprite && this.lava && this.ladyLavaSprite.visible) {
+      this.ladyLavaSprite.y = this.lava.y - 40;
     }
+
     // Animar lava cayendo y humo del volcán
     if (this.volcanoSprite && this.textures.exists("volcano_bg")) {
       const g = this.make.graphics({ x: 0, y: 0, add: false });

@@ -50,11 +50,11 @@ const gameConfig = {
   powers: {
     enabled: true,
     // Probabilidad de generar un poder por plataforma creada (0–1)
-    spawnChancePerPlatform: 0.1,
+    spawnChancePerPlatform: 1.1,
     // Ventana de aviso antes de expirar el poder (ms): parpadeo rápido
     warningMs: 500,
     // Pesos de aparicion por tipo
-    weights: { noGravity: 1, freezeLava: 1, shield: 1 },
+    weights: { noGravity: 1, freezeLava: 0, shield: 0 },
     // Config específico del modo sin gravedad
     noGravity: {
       durationMs: 5000, // duración del poder activo
