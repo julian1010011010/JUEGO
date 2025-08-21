@@ -137,7 +137,7 @@ export default class GameScene extends Phaser.Scene {
     const walkKey = createLadyLavaAnimation(this);
     this.ladyLavaSprite = this.add.sprite(
       this.scale.width / 2,
-      this.scale.height - this.lavaHeight,
+      this.scale.height - this.lavaHeight - 40, // <-- sube el personaje 40 píxeles
       "ladyLava_1"
     ).setDepth(0);
     this.ladyLavaSprite.play(walkKey);
@@ -1066,4 +1066,4 @@ export default class GameScene extends Phaser.Scene {
       this.sonidoPower.play();
     }
   }
-} 
+}
