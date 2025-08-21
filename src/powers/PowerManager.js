@@ -248,6 +248,35 @@ export default class PowerManager {
     } catch {}
   }
 
+
+  /** Congela la lava y los misiles por un tiempo configurado. */
+  activateFreezeOnlyLava(duration = 5000) {
+    const s = this.scene
+    const cfg = gameConfig?.powers?.freezeLava || {}
+    duration = Math.max(200, Number(cfg.durationMs) || duration)
+    const now = s.time.now
+
+    if (!this.powers.freezeLava) this.powers.freezeLava = { until: now + duration, duration, warned: false }
+    else { this.powers.freezeLava.until = now + duration; this.powers.freezeLava.duration = duration; this.powers.freezeLava.warned = false }
+    // Visual lava congelada (una vez)
+    try {
+      if (!s._lavaFrozenVisual) { 
+        s.lava?.setTint?.(cfg.tint )
+        s.lavaFlames && (s.lavaFlames.visible = false)
+        s.lavaRocks && (s.lavaRocks.visible = false)
+        s._lavaFrozenVisual = true
+      }
+    } catch {}
+
+    // Aplicar congelación
+    s.lavaFrozenUntil = now + duration
+ 
+    // UI
+    this._ensureUi()
+    this.uiText.setVisible(true)
+    try { const w = s.scale.width, h = s.scale.height; this.uiText.setPosition(w * 0.5, h * 0.38) } catch {}
+  }
+
   /** Congela la lava y los misiles por un tiempo configurado. */
   activateFreezeLava() {
     const s = this.scene

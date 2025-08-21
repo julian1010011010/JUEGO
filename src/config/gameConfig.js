@@ -21,7 +21,7 @@ const gameConfig = {
     size: { min: 10, max: 20 },
 
     // Cantidad de misiles por oleada (número o {min,max})
-    count: { min: 1, max: 2 },
+    count: { min: 1, max: 3 },
   },
 
   // Frecuencias de tipos de plataformas (pesos, no porcentajes; pueden sumar lo que quieras)
@@ -48,7 +48,7 @@ const gameConfig = {
 
   // Poderes temporales
   powers: {
-    enabled: true ,
+    enabled: false, // Habilitar/deshabilitar poderes,
     // Probabilidad de generar un poder por plataforma creada (0–1)
     spawnChancePerPlatform: 1.1,
     // Ventana de aviso antes de expirar el poder (ms): parpadeo rápido
@@ -64,7 +64,7 @@ const gameConfig = {
     // Config de congelar lava
     freezeLava: {
       durationMs: 5000,
-      tint: 0x93c5fd, // color de lava congelada
+      tint: 0x3A4E65, // color de lava congelada
     },
     // Config del escudo (puede no expirar por tiempo; ghost tras rebote)
     shield: {
