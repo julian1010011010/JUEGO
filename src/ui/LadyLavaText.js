@@ -12,11 +12,13 @@ export class LadyLavaText {
     overlay.id = "lady-lava-overlay";
     overlay.innerHTML = `
     <div class="pixel-panel">
-      <h2 class="pixel-title">¡Lady Lava!</h2>
+      <h2 class="pixel-title">OCHI CHORNYE</h2>
+      <h6>¡Очи чёрные, очи жгучие! </h6>
       <p style="color:#f87171; font-size:14px; margin:10px 0;">
-        Guardiana ardiente de las cavernas volcánicas.<br>
-        Su furia despierta cuando te atreves a escalar más de 50 metros.
+      Cuando la oscuridad se ilumina con rojo fuego,<br>
+    sabrás que ella ha despertado.
       </p>
+      <br>
       <button id="btn-close-lady" class="btn-8 btn-affirm">¡Enfrentarla!</button>
     </div>
   `;
