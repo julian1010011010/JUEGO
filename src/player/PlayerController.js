@@ -59,10 +59,22 @@ export default class PlayerController {
     this.jumpKeyW = scene.input.keyboard.addKey(
       Phaser.Input.Keyboard.KeyCodes.W
     );
+    this.leftKeyA = scene.input.keyboard.addKey(
+      Phaser.Input.Keyboard.KeyCodes.A
+    );
+    this.rightKeyD = scene.input.keyboard.addKey(
+      Phaser.Input.Keyboard.KeyCodes.D
+    );
+    this.downKeyS = scene.input.keyboard.addKey(
+      Phaser.Input.Keyboard.KeyCodes.S
+    );
     scene.input.keyboard.addCapture([
       Phaser.Input.Keyboard.KeyCodes.SPACE,
       Phaser.Input.Keyboard.KeyCodes.UP,
       Phaser.Input.Keyboard.KeyCodes.W,
+      Phaser.Input.Keyboard.KeyCodes.A,
+      Phaser.Input.Keyboard.KeyCodes.D,
+      Phaser.Input.Keyboard.KeyCodes.S,
     ]);
 
     // Toques
@@ -130,18 +142,34 @@ export default class PlayerController {
     if (onIce) {
       this.player.setDragX(60);
       let vx = this.player.body.velocity.x;
-      if (this.cursors.left.isDown || this.leftPressed)
+      if (
+        this.cursors.left.isDown ||
+        this.leftPressed ||
+        this.leftKeyA.isDown
+      )
         vx = Phaser.Math.Clamp(vx - 24, -speed, speed);
-      else if (this.cursors.right.isDown || this.rightPressed)
+      else if (
+        this.cursors.right.isDown ||
+        this.rightPressed ||
+        this.rightKeyD.isDown
+      )
         vx = Phaser.Math.Clamp(vx + 24, -speed, speed);
       this.player.setVelocityX(vx);
       this.player.setFlipX(vx < 0);
     } else {
       this.player.setDragX(0);
-      if (this.cursors.left.isDown || this.leftPressed) {
+      if (
+        this.cursors.left.isDown ||
+        this.leftPressed ||
+        this.leftKeyA.isDown
+      ) {
         this.player.setVelocityX(-speed);
         this.player.setFlipX(true);
-      } else if (this.cursors.right.isDown || this.rightPressed) {
+      } else if (
+        this.cursors.right.isDown ||
+        this.rightPressed ||
+        this.rightKeyD.isDown
+      ) {
         this.player.setVelocityX(speed);
         this.player.setFlipX(false);
       } else {

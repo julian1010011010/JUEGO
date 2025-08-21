@@ -10,7 +10,7 @@ export class LadyLavaText {
   constructor(scene, defaults = {}) {
     this.scene = scene;
     this.defaults = Object.assign({
-      start: 3,
+      start: 2,
       lockUntilEnd: true,
       btnLabelWhenReady: '¡Enfrentarla!'
     }, defaults);
