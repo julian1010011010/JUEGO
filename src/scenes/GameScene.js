@@ -392,17 +392,7 @@ export default class GameScene extends Phaser.Scene {
             mod.default.lavaMissiles.enabled = true;
             if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
           });
-        });
-
-        // Timer para mostrar cuenta regresiva (opcional)
-        const timer = new Timer(this);
-        timer.show({
-          title: 'Очи чёрные',
-          subtitle: 'Ochi Chornye',
-          start: 5,
-          onTick: (n) => { /* reproducir beep, anim HUD, etc. */ },
-          onDone: ()  => { /* spawn boss */ }
-        });
+        }); 
       }
     }
 
