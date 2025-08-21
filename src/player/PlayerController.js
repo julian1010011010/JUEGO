@@ -113,12 +113,19 @@ export default class PlayerController {
 
           // Hielo
           if (plat.isIce) this._onIceUntil = scene.time.now + 350;
+
+          // Insta kill
+          if (plat.isDeadly) {
+            this.killPlayer('deadly');
+          }
         }
       },
       (player, plat) => this._platformProcess(player, plat),
       this
     );
-
+    
+   
+ 
     // Cleanup en shutdown
     scene.events.once("shutdown", () => this.destroy());
 
@@ -264,11 +271,29 @@ export default class PlayerController {
   }
 
   /** Limpia listeners y referencias. */
-  destroy() {
-    try {
-      this.playerColorManager?.destroy?.();
-      this.playerColorManager = null;
-    } catch {}
+destroy() {
+  try { this._deadlyOverlap?.destroy?.(); } catch {}
+  try { this.playerColorManager?.destroy?.(); } catch {}
+  this._deadlyOverlap = null;
+  this.playerColorManager = null;
+}
+  /**
+   * Mata al jugador y ejecuta la lógica de game over.
+   * @param {string} [reason] - Motivo de la muerte (opcional).
+   */
+  killPlayer(reason = '') {
+    if (this.player) {
+      this.player.setVelocity(0, 0)
+      this.player.setAlpha(0.5)
+      this.player.setTint(0xff0000)
+      this.player.active = false
+      if (this.player.body) this.player.body.enable = false
+    }
+    // Lógica de game over (puedes personalizar)
+    if (this.scene?.gameOver) {
+      this.scene.gameOver(reason)
+    }
+    // Puedes agregar efectos, sonidos, etc.
   }
 
   // --- Privado ---
@@ -317,4 +342,4 @@ export default class PlayerController {
       return true;
     }
   }
-}
+} 

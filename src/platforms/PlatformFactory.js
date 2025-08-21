@@ -17,6 +17,7 @@ export default class PlatformFactory {
   invertX: { name: 'Inversa X', color: [255, 64, 129], typeChance: 0.10 },   // Rosa fuerte vivo (controles invertidos)
   normal:  { name: 'Normal', color: [29, 233, 182], typeChance: 0.45 },      // Turquesa vivo (neutro)
   inversa: { name: 'Inversa', color: [124, 77, 255], typeChance: 0.10 },     // Violeta vivo (opuesto al jugador)
+  deadly:  { name: 'Letal', color: [0, 0, 0], typeChance: 0.08 }, // Negro absoluto (game over al tocar)
     // Eliminada la plataforma 'moving' por no tener poder
   }
   /**
@@ -254,6 +255,7 @@ export default class PlatformFactory {
     plat.isInversa = typeKey === 'inversa' 
     plat.isBouncy = typeKey === 'bouncy' 
     plat.isInvertX = typeKey === 'invertX'
+    plat.isDeadly = typeKey === 'deadly'
   }
 
   /**
@@ -364,6 +366,11 @@ export default class PlatformFactory {
       }
       case 'inversa': {
         this.applyInversaBehavior(scene, plat)
+        break
+      }
+      // NUEVO: Letal (game over al tocar)
+      case 'deadly': {
+        this.applyDeadlyBehavior(scene, plat)
         break
       }
       default: {
@@ -518,6 +525,17 @@ export default class PlatformFactory {
 
   // El tintado del jugador lo maneja centralmente PlayerColorManager en GameScene
   }
+
+
+// PlatformFactory.js
+applyDeadlyBehavior(scene, plat) {
+  PlatformFactory.applyTypeMeta(plat, 'deadly');
+  if (typeof plat.typeColor === 'number') plat.setTint(plat.typeColor); else plat.clearTint();
+  plat.setAlpha(1);
+  // Nada de physics/overlaps aquí: la muerte se maneja globalmente
+}
+
+
 
   /**
    * NUEVO: Aplica comportamiento para plataforma 'bouncy' (elástica).

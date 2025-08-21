@@ -34,7 +34,7 @@ const gameConfig = {
     // NUEVO: evitar crear plataformas alineadas con la base; radio en píxeles
     avoidBaseXRadius: 80,
     weights: {
-      normal: 10,
+      normal: 0,
       fragile: 0,
       timed: 0,
       ice: 0,
@@ -42,6 +42,7 @@ const gameConfig = {
       invertX: 0,
       bouncy: 0,
       inversa: 0,
+      deadly: 10, // NUEVO: activa la plataforma letal
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     },
   },
