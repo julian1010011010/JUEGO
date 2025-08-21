@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import gameConfig from '../config/gameConfig'
+import gameConfig from '../config/GameConfig'
 /**
  * Fabrica de plataformas con rasgos especiales.
  * - Selección de tipo ponderada y centralizada.

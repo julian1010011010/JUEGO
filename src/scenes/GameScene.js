@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import PlatformFactory from "../platforms/PlatformFactory";
 import PowerManager from "../powers/PowerManager";
 import PlayerController from "../player/PlayerController";
-import gameConfig from "../config/gameConfig";
+import gameConfig from "../config/GameConfig.js";
 import LavaParticle from "../effects/LavaParticle";
 import { playLavaDeath } from "../effects/playLavaDeath";
 import UserInfo from "../user/UserInfo";

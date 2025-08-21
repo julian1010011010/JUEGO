@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import gameConfig from '../config/gameConfig'
+import gameConfig from '../config/GameConfig'
 
 /** Gestiona poderes temporales del jugador (spawn, recogida, activación y expiración). */
 export default class PowerManager {
