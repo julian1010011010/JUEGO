@@ -378,7 +378,7 @@ export default class GameScene extends Phaser.Scene {
 
 
       // Mostrar LadyLava y activar misiles al pasar 500  metros
-      if (metros > 500 && !this.ladyLavaSprite.visible) {
+      if (metros > 1 && !this.ladyLavaSprite.visible) {
         this.firstLevel();
       }
     }
