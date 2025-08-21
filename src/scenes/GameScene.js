@@ -8,14 +8,18 @@ import { playLavaDeath } from "../effects/playLavaDeath";
 import UserInfo from "../user/UserInfo";
 import SoundFX from "../audio/SoundFX";
 import BackgroundFactory from "../backgrounds/BackgroundFactory";
-import { preloadLadyLava, createLadyLavaAnimation } from "../sprites/animation/LadyLava/ladyLava.js";
-
+import {
+  preloadLadyLava,
+  createLadyLavaAnimation,
+} from "../sprites/animation/LadyLava/ladyLava.js";
 
 // arriba del archivo
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super("game");
 
+
+    //#region Variables
     // Entidades y estado base
     this.player = null;
     this.playerCtrl = null;
@@ -60,6 +64,8 @@ export default class GameScene extends Phaser.Scene {
     this.lavaSurfaceCollider = null;
 
     this.sonidoPower = null; // NUEVO: referencia al sonido de poder
+
+    //#endregion
   }
 
   /** Devuelve un X aleatorio evitando el eje X de la base según config. */
@@ -85,11 +91,11 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("bg", "src/sprites/fondo/1.png");
     this.load.audio("sfx-sonar", "audio/sonar.mp3"); // <-- Asegúrate de que el archivo exista en esta ruta
     this.createTextures();
-    this.load.image("terminator", "src/effects/images/terminator.png"); 
+    this.load.image("terminator", "src/effects/images/terminator.png");
     preloadLadyLava(this);
   }
-ss
-  create() { 
+
+  create() {
     // Preguntar por nombre y edad si es la primera vez
     this.userInfo = new UserInfo();
 
@@ -127,10 +133,14 @@ ss
     this.bg.createVolcanoAmbientParticles();
     // Opción 1: fondo animado por sprites
 
-
-// 3) Animación de LadyLava (crea si no existe)
-const walkKey = createLadyLavaAnimation(this);
-
+    // 3) Animación de LadyLava (crea si no existe)
+    const walkKey = createLadyLavaAnimation(this);
+    this.ladyLavaSprite = this.add.sprite(
+      this.scale.width / 2,
+      this.scale.height - this.lavaHeight,
+      "ladyLava_1"
+    ).setDepth(0);
+    this.ladyLavaSprite.play(walkKey);
 
     // Pausar/Reanudar al cambiar de foco (opcional)
     this.game.events.on(Phaser.Core.Events.BLUR, () => this.music?.pause());
@@ -249,14 +259,7 @@ const walkKey = createLadyLavaAnimation(this);
     this.lava = this.add
       .tileSprite(0, lavaY, width, this.lavaHeight, "lava")
       .setOrigin(0, 0)
-      .setDepth(1);
-
-    // LadyLava encima de la lava
-    createLadyLavaAnimation(this);
-    this.ladyLavaSprite = this.add
-      .sprite(width / 2, lavaY - 20, "1")
       .setDepth(2);
-    this.ladyLavaSprite.play("ladyLava_walk");
 
     // Partículas de lava: fuego y piedritas pixeladas (requiere 'px')
     this.createLavaParticles();
@@ -360,13 +363,12 @@ const walkKey = createLadyLavaAnimation(this);
   }
 
   update() {
-    // Evita ejecutar lógica si el juego no está inicializado
+ 
     if (!this.platforms || !this.player) return;
 
-
-   if (this.ladyLavaSprite && this.lava) {
+    if (this.ladyLavaSprite && this.lava) {
       this.ladyLavaSprite.y = this.lava.y - 20;
-   }
+    }
 
     // Actualizar metros ascendidos
     if (this.metersText && this.player) {
@@ -1064,4 +1066,4 @@ const walkKey = createLadyLavaAnimation(this);
       this.sonidoPower.play();
     }
   }
-}
+} 
