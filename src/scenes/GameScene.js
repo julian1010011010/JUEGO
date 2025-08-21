@@ -13,6 +13,7 @@ import {
   createLadyLavaAnimation,
 } from "../sprites/animation/LadyLava/ladyLava.js";
 import { LadyLavaText } from "../ui/LadyLavaText.js";
+import { Timer } from "../ui/Timer.js";
 
 // arriba del archivo
 export default class GameScene extends Phaser.Scene {
@@ -391,6 +392,16 @@ export default class GameScene extends Phaser.Scene {
             mod.default.lavaMissiles.enabled = true;
             if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
           });
+        });
+
+        // Timer para mostrar cuenta regresiva (opcional)
+        const timer = new Timer(this);
+        timer.show({
+          title: 'Очи чёрные',
+          subtitle: 'Ochi Chornye',
+          start: 5,
+          onTick: (n) => { /* reproducir beep, anim HUD, etc. */ },
+          onDone: ()  => { /* spawn boss */ }
         });
       }
     }
@@ -1083,4 +1094,3 @@ export default class GameScene extends Phaser.Scene {
     this.lavaMissiles = null;
   }
 }
-   
