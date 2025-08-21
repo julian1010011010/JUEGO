@@ -13,6 +13,7 @@ import {
   createLadyLavaAnimation,
 } from "../sprites/animation/LadyLava/ladyLava.js";
 import { LadyLavaText } from "../ui/LadyLavaText.js";
+import { MissileText } from "../ui/MissileText.js";
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -363,52 +364,58 @@ export default class GameScene extends Phaser.Scene {
     // Cronómetro
     this.startTime = this.time.now;
 
-    // NUEVO: Instancia de LadyLavaText
     this.ladyLavaText = new LadyLavaText(this);
+
+    this.MissileText = new MissileText(this);
   }
 
+  LevelControl() {
+    if (!this.metersText || !this.player) return;
 
+    const metros = this.getMeters(); // centralizado
+    this.metersText.setText(`${metros} m`);
 
-LevelControl() {
-  if (!this.metersText || !this.player) return;
+    // Nivel 0 – Misiles + Freeze al pasar 100 metros
+    if (metros > 100 && this._missilesState === "off") this.zeroLevel();
 
-  const metros = this.getMeters(); // centralizado
-  this.metersText.setText(`${metros} m`);
+    // Nivel 1 – Detener misiles al pasar 400
+    if (metros > 400 && this._missilesState === "on")
+      this.disableLavaMissiles();
 
-  // Nivel 0 – Misiles + Freeze al pasar 100 metros
-  if (metros > 100 && this._missilesState === 'off') this.zeroLevel();
-
-  // Nivel 1 – Detener misiles al pasar 400
-  if (metros > 400 && this._missilesState === 'on') this.disableLavaMissiles();
-
-  // Nivel 2 – Cinemática Lady Lava al pasar 500
-  if (metros > 500 && !this.ladyLavaSprite.visible) this.firstLevel();
-}
-getMeters() {
-  const baseY = this._metersBaselineY ?? this.scale.height - 120;
-  return Math.max(0, Math.round((baseY - this.player.y) / 10));
-}
-zeroLevel() {
-  if (!this._freezeTriggered) {
-    // Freeze solo hasta el metro 150
-    this.powerManager?.activateFreezeOnlyLava({ stopAtMeters: 150, durationMs: 0 });
-    this._freezeTriggered = true;
+    // Nivel 2 – Cinemática Lady Lava al pasar 500
+    if (metros > 500 && !this.ladyLavaSprite.visible) this.firstLevel();
   }
-  this.enableLavaMissiles();
-}
+  getMeters() {
+    const baseY = this._metersBaselineY ?? this.scale.height - 120;
+    return Math.max(0, Math.round((baseY - this.player.y) / 10));
+  }
+  zeroLevel() {
+    if (!this._freezeTriggered) {
+      this.physics.pause();
+      this.MissileText.showIntro(() => {
+            this.physics.resume();
+        this.powerManager?.activateFreezeOnlyLava({
+          stopAtMeters: 150,
+          durationMs: 0,
+        });
+      });
+      this._freezeTriggered = true;
+    }
+    this.enableLavaMissiles();
+  }
 
-firstLevel() {
-  this.ladyLavaSprite.setVisible(true);
-  this.physics.pause();
+  firstLevel() {
+    this.ladyLavaSprite.setVisible(true);
+    this.physics.pause();
 
-  this.ladyLavaText.showIntro(() => {
-    this.physics.resume();
-    // Cambia tipo de plataformas
-    const weights = this.ConfigGame.default.platforms.weights;
-    weights.fragile = 10;
-    weights.normal = 0;
-  });
-}
+    this.ladyLavaText.showIntro(() => {
+      this.physics.resume();
+      // Cambia tipo de plataformas
+      const weights = this.ConfigGame.default.platforms.weights;
+      weights.fragile = 10;
+      weights.normal = 0;
+    });
+  }
 
   update() {
     if (!this.platforms || !this.player) return;
@@ -689,7 +696,7 @@ firstLevel() {
   }
 
   // Spawnea un pixel de lava que parpadea y luego se dispara al jugador
-  ShootMissile() { 
+  ShootMissile() {
     console.log("Shooting lava missile");
     if (!this.isLavaMissileEnabled()) return null;
     if (!this.lava || !this.lavaMissiles) return null;
@@ -704,31 +711,42 @@ firstLevel() {
   }
 
   // Inicia o reinicia el temporizador de misiles con el delay configurado
-startLavaMissileSpawner() {
-  if (!this.isLavaMissileEnabled()) { this._lavaMissileTimer?.remove(false); this._lavaMissileTimer = null; return; }
-  if (this._lavaMissileTimer) { this._lavaMissileTimer.paused = false; return; } // <-- evita recrear
+  startLavaMissileSpawner() {
+    if (!this.isLavaMissileEnabled()) {
+      this._lavaMissileTimer?.remove(false);
+      this._lavaMissileTimer = null;
+      return;
+    }
+    if (this._lavaMissileTimer) {
+      this._lavaMissileTimer.paused = false;
+      return;
+    } // <-- evita recrear
 
-  const initialDelay = this.getNextLavaMissileDelay?.();
-  if (!(initialDelay > 0 && isFinite(initialDelay))) { this._lavaMissileTimer?.remove(false); this._lavaMissileTimer = null; return; }
+    const initialDelay = this.getNextLavaMissileDelay?.();
+    if (!(initialDelay > 0 && isFinite(initialDelay))) {
+      this._lavaMissileTimer?.remove(false);
+      this._lavaMissileTimer = null;
+      return;
+    }
 
-  this._lavaMissileTimer = this.time.addEvent({
-    delay: initialDelay,
-    loop: true,
-    callback: () => {
-      if (!this.isLavaMissileEnabled() || this._missilesState !== 'on') return;
-      if (this._ended || !this.canLose) return;
+    this._lavaMissileTimer = this.time.addEvent({
+      delay: initialDelay,
+      loop: true,
+      callback: () => {
+        if (!this.isLavaMissileEnabled() || this._missilesState !== "on")
+          return;
+        if (this._ended || !this.canLose) return;
 
-      const n = this.getLavaMissileCount?.() ?? 1;
-      for (let i = 0; i < n; i++) this.ShootMissile();
+        const n = this.getLavaMissileCount?.() ?? 1;
+        for (let i = 0; i < n; i++) this.ShootMissile();
 
-      if (this._lavaMissileTimer && !this.isFixedLavaMissileDelay?.()) {
-        const next = this.getNextLavaMissileDelay?.() ?? 3000;
-        if (next > 0) this._lavaMissileTimer.delay = next;
-      }
-    },
-  });
-}
-
+        if (this._lavaMissileTimer && !this.isFixedLavaMissileDelay?.()) {
+          const next = this.getNextLavaMissileDelay?.() ?? 3000;
+          if (next > 0) this._lavaMissileTimer.delay = next;
+        }
+      },
+    });
+  }
 
   // Helper: flag centralizado para habilitar/deshabilitar misiles por config
   isLavaMissileEnabled() {
@@ -883,24 +901,27 @@ startLavaMissileSpawner() {
       showOverlay();
     }
   }
-enableLavaMissiles() {
-  if (this._missilesState === 'on') return;
-  gameConfig.lavaMissiles.enabled = true;
-  if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
-  else this._lavaMissileTimer.paused = false;
-  this._missilesState = 'on';
-}
+  enableLavaMissiles() {
+    if (this._missilesState === "on") return;
+    gameConfig.lavaMissiles.enabled = true;
+    if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
+    else this._lavaMissileTimer.paused = false;
+    this._missilesState = "on";
+  }
 
-disableLavaMissiles() {
-  if (this._missilesState === 'off') return;
-  gameConfig.lavaMissiles.enabled = false;
-  if (this._lavaMissileTimer) { this._lavaMissileTimer.remove(false); this._lavaMissileTimer = null; }
-  this._missilesState = 'off';
-}
+  disableLavaMissiles() {
+    if (this._missilesState === "off") return;
+    gameConfig.lavaMissiles.enabled = false;
+    if (this._lavaMissileTimer) {
+      this._lavaMissileTimer.remove(false);
+      this._lavaMissileTimer = null;
+    }
+    this._missilesState = "off";
+  }
   createTextures() {
-    this._missilesState = 'off';     // 'off' | 'on'
-this._freezeAt10mFired = false;  // evita repetir el freeze de 10 m
- // umbral de apagado
+    this._missilesState = "off"; // 'off' | 'on'
+    this._freezeAt10mFired = false; // evita repetir el freeze de 10 m
+    // umbral de apagado
     const g = this.make.graphics({ x: 0, y: 0, add: false });
     // Jugador
     g.fillStyle(0x7dd3fc, 1);

@@ -1,5 +1,5 @@
-// src/ui/LadyLavaText.js
-export class LadyLavaText {
+// src/ui/MissileText.js
+export class MissileText {
   /**
    * @param {Phaser.Scene} scene
    * @param {object} [defaults]
@@ -12,7 +12,7 @@ export class LadyLavaText {
     this.defaults = Object.assign({
       start: 5,
       lockUntilEnd: true,
-      btnLabelWhenReady: '¡Enfrentarla!'
+      btnLabelWhenReady: '¡Esquivalos!'
     }, defaults);
 
     this._timer = null;
@@ -39,24 +39,27 @@ export class LadyLavaText {
 
     const { start, lockUntilEnd, btnLabelWhenReady } = this.defaults;
 
-    // Panel con mismo diseño del Timer
-    overlay.innerHTML = `
-      <div class="pixel-panel">
-        <h2 class="pixel-title">OCHI CHORNYE</h2>
-        <h6 class="pixel-sub">¡Очи чёрные, очи жгучие!</h6>
-        <p class="pixel-msg" style="color:#f87171;">
-          Cuando la oscuridad se ilumina con rojo fuego,<br>
-          sabrás que ella ha despertado.
-        </p>
+ 
+overlay.innerHTML = `
+  <div class="pixel-panel">
+    <h2 class="pixel-title">ALERTA DE PELIGRO</h2>
+    <h6 class="pixel-sub">¡Misiles de lava entrantes!</h6>
+    
+    <p class="pixel-msg" style="color:#facc15;">
+      A partir de este momento,<br>
+      <strong>misiles ardientes</strong> comenzarán a lanzarse desde las profundidades.<br>
+      ¡Mantente en movimiento y no te detengas!
+    </p>
 
-        <div id="px-count" class="pixel-countdown">3</div>
+    <div id="px-count" class="pixel-countdown">3</div>
 
-        <button id="btn-close-lady" class="btn-8 btn-affirm" ${lockUntilEnd ? 'disabled' : ''} 
-          style="${lockUntilEnd ? 'opacity:.6;cursor:not-allowed;' : ''}; margin-top:14px;">
-          ${lockUntilEnd ? '...' : btnLabelWhenReady}
-        </button>
-      </div>
-    `;
+    <button id="btn-close-lady" class="btn-8 btn-affirm" ${lockUntilEnd ? 'disabled' : ''} 
+      style="${lockUntilEnd ? 'opacity:.6;cursor:not-allowed;' : ''}; margin-top:14px;">
+      ${lockUntilEnd ? '...' : btnLabelWhenReady}
+    </button>
+  </div>
+`;
+
 
     document.body.appendChild(overlay);
 
