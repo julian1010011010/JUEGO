@@ -369,34 +369,43 @@ export default class GameScene extends Phaser.Scene {
     this.ladyLavaText = new LadyLavaText(this);
   }
 
-  update() {
-    if (!this.platforms || !this.player) return;
-
-    // Mostrar LadyLava y activar misiles al pasar 100 metros
+  LevelControl() {
+ 
     if (this.metersText && this.player) {
       const baseY = this._metersBaselineY ?? this.scale.height - 120;
       const metros = Math.max(0, Math.round((baseY - this.player.y) / 10));
       this.metersText.setText(`${metros} m`);
 
+
+      // Mostrar LadyLava y activar misiles al pasar 100   metros
       if (metros > 100 && !this.ladyLavaSprite.visible) {
-        this.ladyLavaSprite.setVisible(true);
-
-        // Pausa el juego
-        this.physics.pause();
-
-        // Muestra el overlay y reanuda al cerrar
-        this.ladyLavaText.showIntro(() => {
-          this.physics.resume();
-          // Activa los misiles de lava en la config global
-          import("../config/gameConfig.js").then((mod) => {
-            mod.default.lavaMissiles.enabled = true;
-            mod.default.platforms.weights.fragile = 10;
-            mod.default.platforms.weights.normal = 0;
-            if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
-          });
-        }); 
+        this.firstLevel();
       }
     }
+  }
+
+  firstLevel() {
+    this.ladyLavaSprite.setVisible(true); 
+    // Pausa el juego
+    this.physics.pause();
+
+    // Muestra el overlay y reanuda al cerrar
+    this.ladyLavaText.showIntro(() => {
+      this.physics.resume();
+      // Activa los misiles de lava en la config global
+      import("../config/gameConfig.js").then((mod) => {
+        mod.default.lavaMissiles.enabled = true;
+        mod.default.platforms.weights.fragile = 10;
+        mod.default.platforms.weights.normal = 0;
+        if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
+      });
+    });
+  }
+
+  update() {
+    if (!this.platforms || !this.player) return;
+
+    this.LevelControl();
 
     if (this.ladyLavaSprite && this.lava && this.ladyLavaSprite.visible) {
       this.ladyLavaSprite.y = this.lava.y - 40;
