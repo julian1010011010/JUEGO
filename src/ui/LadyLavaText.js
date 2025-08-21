@@ -4,8 +4,7 @@ export class LadyLavaText {
     this.textObj = null;
   }
 
- 
-  showIntro() {
+  showIntro(onClose) {
     let overlay = document.getElementById("lady-lava-overlay");
     if (overlay) overlay.remove();
 
@@ -18,7 +17,6 @@ export class LadyLavaText {
         Guardiana ardiente de las cavernas volcánicas.<br>
         Su furia despierta cuando te atreves a escalar más de 50 metros.
       </p>
-  
       <button id="btn-close-lady" class="btn-8 btn-affirm">¡Enfrentarla!</button>
     </div>
   `;
@@ -37,6 +35,7 @@ export class LadyLavaText {
     // cerrar
     document.getElementById("btn-close-lady").onclick = () => {
       overlay.remove();
+      if (typeof onClose === "function") onClose();
     };
   }
-}
+} 

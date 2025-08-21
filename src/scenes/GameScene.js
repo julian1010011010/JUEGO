@@ -377,14 +377,20 @@ export default class GameScene extends Phaser.Scene {
       const metros = Math.max(0, Math.round((baseY - this.player.y) / 10));
       this.metersText.setText(`${metros} m`);
 
-      if (metros > 100 && !this.ladyLavaSprite.visible) {
+      if (metros > 10 && !this.ladyLavaSprite.visible) {
         this.ladyLavaSprite.setVisible(true);
-        this.ladyLavaText.showIntro();
-        // Activa los misiles de lava en la config global
-        import("../config/gameConfig.js").then((mod) => {
-          mod.default.lavaMissiles.enabled = true;
-          // Inicia el spawner si aún no está activo
-          if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
+
+        // Pausa el juego
+        this.physics.pause();
+
+        // Muestra el overlay y reanuda al cerrar
+        this.ladyLavaText.showIntro(() => {
+          this.physics.resume();
+          // Activa los misiles de lava en la config global
+          import("../config/gameConfig.js").then((mod) => {
+            mod.default.lavaMissiles.enabled = true;
+            if (!this._lavaMissileTimer) this.startLavaMissileSpawner();
+          });
         });
       }
     }
@@ -1077,3 +1083,4 @@ export default class GameScene extends Phaser.Scene {
     this.lavaMissiles = null;
   }
 }
+   
