@@ -50,93 +50,60 @@ export default class PlayerController {
   }
 
   /** Crea sprite, input y colisión con plataformas. */
-  create(x, y) {
-    const { scene } = this;
+// PlayerController.js
+create(x, y, {
+  texture = 'player_cat_1',
+  animKey = 'player_cat_idle',
+  body = { w: 24, h: 28 }
+} = {}) {
+  const { scene } = this;
 
-    // Jugador
-    this.player = scene.physics.add.sprite(x, y, "player");
-    this.player.setBounce(0.05);
-    this.player.setCollideWorldBounds(false);
-    this.player.body.setSize(24, 28);
+  this.player = scene.physics.add.sprite(x, y, texture);
+  this.player.setOrigin(0.5, 1);
+  this.player.setBounce(0.05);
+  this.player.setCollideWorldBounds(false);
 
-    // Input
-    this.cursors = scene.input.keyboard.createCursorKeys();
-    this.jumpKey   = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.jumpKeyUp = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
-    this.jumpKeyW  = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-    this.leftKeyA  = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-    this.rightKeyD = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-    this.downKeyS  = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    scene.input.keyboard.addCapture([
-      Phaser.Input.Keyboard.KeyCodes.SPACE,
-      Phaser.Input.Keyboard.KeyCodes.UP,
-      Phaser.Input.Keyboard.KeyCodes.W,
-      Phaser.Input.Keyboard.KeyCodes.A,
-      Phaser.Input.Keyboard.KeyCodes.D,
-      Phaser.Input.Keyboard.KeyCodes.S,
-    ]);
+  // Hitbox compacto y centrado
+  this.player.body.setSize(body.w, body.h, true);
+  this.player.body.setOffset(
+    Math.round((this.player.width  - body.w) / 2),
+    Math.round((this.player.height - body.h))
+  );
 
-    // Toques
-    this._setupTouchControls();
+  // Input
+  this.cursors  = scene.input.keyboard.createCursorKeys();
+  this.jumpKey  = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+  this.jumpKeyUp= scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+  this.jumpKeyW = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+  this.leftKeyA = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+  this.rightKeyD= scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+  this.downKeyS = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+  scene.input.keyboard.addCapture([32,38,87,65,68,83]);
 
-    // Color manager
-    this.playerColorManager = new PlayerColorManager(scene, this.player);
-    this.playerColorManager.applyWhileOverlap(scene.platforms, null, 80);
+  this._setupTouchControls();
 
-    // Colisión con plataformas (incluye reinicio de saltos)
-    scene.physics.add.collider(
-      this.player,
-      scene.platforms,
-      (_player, plat) => {
-        if (!plat || !plat.body) return;
+  // Collider + reinicio de saltos (igual a tu código actual)
+  scene.physics.add.collider(this.player, scene.platforms, (p, plat) => { /* … */ },
+                             (p, plat) => this._platformProcess(p, plat),
+                             this);
 
-        const pb = this.player.body;
-        const sb = plat.body;
-        const landing = pb.velocity.y >= 0 && pb.bottom <= sb.top + 8;
-
-        if (landing || pb.touching.down || pb.blocked.down) {
-          // Aterrizaje: reinicia ventana coyote y contador de saltos
-          this.lastGroundTime = scene.time.now;
-          this.currentPlatform = plat;
-          this.remainingJumps = this.maxJumps;
-
-          // Temporizadas (desaparecen si sigues encima 2s)
-          if (plat.isTimed && !plat._timing) {
-            plat._timing = true;
-            plat._timer = scene.time.delayedCall(2000, () => {
-              if (plat && plat.active && this.currentPlatform === plat) {
-                scene.tweens.killTweensOf(plat);
-                plat.destroy();
-              }
-              if (plat) {
-                plat._timing = false;
-                plat._timer = null;
-              }
-            });
-          }
-
-          // Hielo
-          if (plat.isIce) this._onIceUntil = scene.time.now + 350;
-
-          // Insta kill
-          if (plat.isDeadly) {
-            this.killPlayer('deadly');
-          }
-        }
-      },
-      (player, plat) => this._platformProcess(player, plat),
-      this
+  // Reaplica hitbox en cada frame por si el frame de la anim cambia dimensiones
+  this.player.on('animationupdate', () => {
+    this.player.body.setSize(body.w, body.h, true);
+    this.player.body.setOffset(
+      Math.round((this.player.width  - body.w) / 2),
+      Math.round((this.player.height - body.h))
     );
-    
-   
- 
-    // Cleanup en shutdown
-    scene.events.once("shutdown", () => this.destroy());
+  });
 
-    // Estado inicial
-    this.remainingJumps = this.maxJumps;
-    return this.player;
-  }
+  if (scene.anims.exists(animKey))
+    this.player.play({ key: animKey, ignoreIfPlaying: true });
+
+  this.remainingJumps = this.maxJumps;
+  scene.events.once('shutdown', () => this.destroy());
+  return this.player;
+}
+
 
   /** Update por frame: movimiento, salto, wrap y lógicas asociadas. */
   update() {

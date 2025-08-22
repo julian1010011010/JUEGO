@@ -187,29 +187,23 @@ export default class GameScene extends Phaser.Scene {
       const y = startY - i * 70;
       this.platformFactory.spawn(x, y, this.pickPlatformType());
     }
-    // Plataforma base bajo el jugador (siempre normal y sin movimiento)
-    const plataformaBase = this.platformFactory.spawn(baseX, baseY + 30, "normal", {
-      noMove: true,
-      allowBaseX: true,
-      isBase: true,
-    });
+    // Plataforma base bajo el jugador (estática, parte del grupo)
+    const plataformaBase = this.platforms.create(baseX, baseY + 30, "platform");
+    plataformaBase.setScale(1, 1).refreshBody(); // Ajusta el tamaño si es necesario
 
     // Límite global: no permitir spawns debajo de esta línea (por ejemplo, respawns)
     this.platformSpawnMaxY = baseY - gapAboveBase;
 
     // Jugador y controlador (inicia justo por encima de la base)
     this.playerCtrl = new PlayerController(this);
-    const playerSize = gameConfig?.player?.size || { width: 32, height: 32 };
-    const playerStartY = baseY + 30 - (playerSize.height / 2);
-    this.player = spawnPlayerCat(this, { x: baseX, y: playerStartY, animKey: 'player_cat_idle' });
-    this.playerCtrl.player = this.player;
-    this.player.setDisplaySize(playerSize.width, playerSize.height);
-    if (this.player.body && this.player.body.setSize) {
-      this.player.body.setSize(playerSize.width, playerSize.height);
-    }
+this.player = this.playerCtrl.create(baseX, 0, {
+  texture: 'player_cat_1',
+  animKey: 'player_cat_idle',
+  body: { w: 24, h: 28 }
+});
 
-    // Añade colisión física entre el jugador y la plataforma base
-    this.physics.add.collider(this.player, plataformaBase);
+    // Añade colisión física entre el jugador y el grupo de plataformas
+    this.physics.add.collider(this.player, this.platforms);
 
     // Baseline dinámico para el contador de metros (arranca en 0)
     this._metersBaselineY = this.player.y;
