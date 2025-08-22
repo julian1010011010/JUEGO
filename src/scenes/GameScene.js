@@ -197,7 +197,7 @@ export default class GameScene extends Phaser.Scene {
     // Jugador y controlador (inicia justo por encima de la base)
     this.playerCtrl = new PlayerController(this);
 this.player = this.playerCtrl.create(baseX, 0, {
-  texture: 'player_cat_1',
+  texture: 'cat_idle_1', // <-- usa el nombre correcto del frame cargado
   animKey: 'player_cat_idle',
   body: { w: 24, h: 28 }
 });

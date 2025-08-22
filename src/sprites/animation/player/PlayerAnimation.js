@@ -40,4 +40,4 @@ export function spawnPlayerCat(scene, { x = 200, y = 300, animKey = 'player_cat_
   sprite.play(key);
   return sprite;
 }
-  
+
