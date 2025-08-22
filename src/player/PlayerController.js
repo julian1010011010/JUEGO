@@ -15,6 +15,10 @@ export default class PlayerController {
     this.scene = scene;
     this.sfx = new SoundFX(scene);
 
+
+    // Para salto con touch
+    this.jumpTouchRequested = false;
+
     // Entidades / input
     this.player = null;
     this.cursors = null;
@@ -144,54 +148,26 @@ export default class PlayerController {
     const onIce  = scene.time.now <= this._onIceUntil;
 
     // --- Movimiento horizontal (con efecto hielo) ---
-    if (onIce) {
-      this.player.setDragX(60);
-      let vx = this.player.body.velocity.x;
-      if (
-        this.cursors.left.isDown ||
-        this.leftPressed ||
-        this.leftKeyA.isDown
-      )
-        vx = Phaser.Math.Clamp(vx - 24, -speed, speed);
-      else if (
-        this.cursors.right.isDown ||
-        this.rightPressed ||
-        this.rightKeyD.isDown
-      )
-        vx = Phaser.Math.Clamp(vx + 24, -speed, speed);
-      this.player.setVelocityX(vx);
-      this.player.setFlipX(vx < 0);
-    } else {
-      this.player.setDragX(0);
-      if (
-        this.cursors.left.isDown ||
-        this.leftPressed ||
-        this.leftKeyA.isDown
-      ) {
-        this.player.setVelocityX(-speed);
-        this.player.setFlipX(true);
-      } else if (
-        this.cursors.right.isDown ||
-        this.rightPressed ||
-        this.rightKeyD.isDown
-      ) {
-        this.player.setVelocityX(speed);
-        this.player.setFlipX(false);
-      } else {
-        this.player.setVelocityX(0);
-      }
-    }
+    let moveLeft = this.cursors.left.isDown || this.leftPressed || this.leftKeyA.isDown;
+    let moveRight = this.cursors.right.isDown || this.rightPressed || this.rightKeyD.isDown;
 
+    // --- Salto táctil automático ---
+    // Si se está tocando izquierda o derecha, salta automáticamente
+  const jumpTouch = this.jumpTouchRequested;
+this.jumpTouchRequested = false; 
     // --- Estado de suelo y coyote ---
     const grounded  = this.player.body.touching.down || this.player.body.blocked.down;
     const canCoyote = scene.time.now - this.lastGroundTime <= 200;
 
     // --- Detección de salto (una sola vez por frame) ---
-    const jumpPressed =
-      Phaser.Input.Keyboard.JustDown(this.jumpKey)   ||
-      Phaser.Input.Keyboard.JustDown(this.jumpKeyUp) ||
-      Phaser.Input.Keyboard.JustDown(this.jumpKeyW)  ||
-      Phaser.Input.Keyboard.JustDown(this.cursors.up);
+
+    
+const jumpPressed =
+  Phaser.Input.Keyboard.JustDown(this.jumpKey)   ||
+  Phaser.Input.Keyboard.JustDown(this.jumpKeyUp) ||
+  Phaser.Input.Keyboard.JustDown(this.jumpKeyW)  ||
+  Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
+  jumpTouch;
 
     // --- ÚNICO bloque de salto (incluye doble salto) ---
     if (jumpPressed && (grounded || canCoyote || this.remainingJumps > 0)) {
@@ -229,6 +205,29 @@ export default class PlayerController {
         });
       }
       this.currentPlatform = null;
+    }
+
+    // --- Movimiento horizontal táctil ---
+    if (onIce) {
+      this.player.setDragX(60);
+      let vx = this.player.body.velocity.x;
+      if (moveLeft)
+        vx = Phaser.Math.Clamp(vx - 24, -speed, speed);
+      else if (moveRight)
+        vx = Phaser.Math.Clamp(vx + 24, -speed, speed);
+      this.player.setVelocityX(vx);
+      this.player.setFlipX(vx < 0);
+    } else {
+      this.player.setDragX(0);
+      if (moveLeft) {
+        this.player.setVelocityX(-speed);
+        this.player.setFlipX(true);
+      } else if (moveRight) {
+        this.player.setVelocityX(speed);
+        this.player.setFlipX(false);
+      } else {
+        this.player.setVelocityX(0);
+      }
     }
 
     // --- Wrap horizontal ---
@@ -296,30 +295,33 @@ destroy() {
     // Puedes agregar efectos, sonidos, etc.
   }
 
-  // --- Privado ---
-  _setupTouchControls() {
-    const { scene } = this;
-    this.leftPressed = false;
-    this.rightPressed = false;
+ _setupTouchControls() {
+  const { scene } = this;
+  const midX = scene.scale.width / 2;
+  const fullH = scene.scale.height;
 
-    const leftZone = scene.add
-      .zone(0, 0, scene.scale.width / 2, scene.scale.height)
-      .setOrigin(0);
-    const rightZone = scene.add
-      .zone(scene.scale.width / 2, 0, scene.scale.width / 2, scene.scale.height)
-      .setOrigin(0);
+  const leftZone = scene.add.zone(0, 0, midX, fullH).setOrigin(0).setInteractive();
+  const rightZone = scene.add.zone(midX, 0, midX, fullH).setOrigin(0).setInteractive();
 
-    leftZone.setInteractive({ useHandCursor: true });
-    rightZone.setInteractive({ useHandCursor: true });
+  // Izquierda
+  leftZone.on("pointerdown", () => {
+    this.leftPressed = true;
+    this._requestJump();   // <<< salto inmediato
+  });
+  leftZone.on("pointerup", () => (this.leftPressed = false));
+  leftZone.on("pointerout", () => (this.leftPressed = false));
 
-    leftZone.on("pointerdown", () => (this.leftPressed = true));
-    leftZone.on("pointerup",   () => (this.leftPressed = false));
-    leftZone.on("pointerout",  () => (this.leftPressed = false));
-
-    rightZone.on("pointerdown", () => (this.rightPressed = true));
-    rightZone.on("pointerup",   () => (this.rightPressed = false));
-    rightZone.on("pointerout",  () => (this.rightPressed = false));
-  }
+  // Derecha
+  rightZone.on("pointerdown", () => {
+    this.rightPressed = true;
+    this._requestJump();   // <<< salto inmediato
+  });
+  rightZone.on("pointerup", () => (this.rightPressed = false));
+  rightZone.on("pointerout", () => (this.rightPressed = false));
+}
+_requestJump() {
+  this.jumpTouchRequested = true;
+}
 
   /**
    * Procesa colisión jugador/plataforma para modo "fantasma":
@@ -342,4 +344,4 @@ destroy() {
       return true;
     }
   }
-} 
+}

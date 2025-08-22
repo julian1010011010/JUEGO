@@ -35,23 +35,23 @@ const gameConfig = {
     avoidBaseXRadius: 80,
     weights: {
       normal: 0,
-      fragile: 0,
-      timed: 0,
-      ice: 0,
+      fragile: 5,
+      timed: 5,
+      ice: 5,
       dodger: 0,
       invertX: 0,
       bouncy: 0,
       inversa: 0,
-      deadly: 10, // NUEVO: activa la plataforma letal
+      deadly: 0.05, // NUEVO: activa la plataforma letal
       // Agrega más tipos si tu PlatformFactory los soporta, p. ej. moving: 5
     },
   },
 
   // Poderes temporales
   powers: {
-    enabled: false, // Habilitar/deshabilitar poderes,
+    enabled: true, // Habilitar/deshabilitar poderes,
     // Probabilidad de generar un poder por plataforma creada (0–1)
-    spawnChancePerPlatform: 1.1,
+    spawnChancePerPlatform: 0.01,
     // Ventana de aviso antes de expirar el poder (ms): parpadeo rápido
     warningMs: 500,
     // Pesos de aparicion por tipo
