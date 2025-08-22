@@ -188,7 +188,7 @@ export default class GameScene extends Phaser.Scene {
       this.platformFactory.spawn(x, y, this.pickPlatformType());
     }
     // Plataforma base bajo el jugador (siempre normal y sin movimiento)
-    this.platformFactory.spawn(baseX, baseY + 30, "normal", {
+    const plataformaBase = this.platformFactory.spawn(baseX, baseY + 30, "normal", {
       noMove: true,
       allowBaseX: true,
       isBase: true,
@@ -199,16 +199,17 @@ export default class GameScene extends Phaser.Scene {
 
     // Jugador y controlador (inicia justo por encima de la base)
     this.playerCtrl = new PlayerController(this);
-    const playerStartY = baseY - 60;
+    const playerSize = gameConfig?.player?.size || { width: 32, height: 32 };
+    const playerStartY = baseY + 30 - (playerSize.height / 2);
     this.player = spawnPlayerCat(this, { x: baseX, y: playerStartY, animKey: 'player_cat_idle' });
     this.playerCtrl.player = this.player;
-
-    // Ajusta el tamaño del personaje usando gameConfig
-    const playerSize = gameConfig?.player?.size || { width: 32, height: 32 };
     this.player.setDisplaySize(playerSize.width, playerSize.height);
     if (this.player.body && this.player.body.setSize) {
       this.player.body.setSize(playerSize.width, playerSize.height);
     }
+
+    // Añade colisión física entre el jugador y la plataforma base
+    this.physics.add.collider(this.player, plataformaBase);
 
     // Baseline dinámico para el contador de metros (arranca en 0)
     this._metersBaselineY = this.player.y;
