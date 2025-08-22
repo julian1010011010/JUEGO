@@ -83,6 +83,10 @@ const gameConfig = {
   debug: {
     collisions: false, // ponlo en false para desactivar logs/dibujo
   },
+
+  player: {
+    size: { width: 32, height: 32 }
+  },
 };
 
 export default gameConfig;
