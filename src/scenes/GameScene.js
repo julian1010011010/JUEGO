@@ -14,6 +14,7 @@ import {
 } from "../sprites/animation/LadyLava/ladyLava.js";
 import { LadyLavaText } from "../ui/LadyLavaText.js";
 import { MissileText } from "../ui/MissileText.js";
+import { preloadPlayerCat, createPlayerCatIdle, spawnPlayerCat } from '../sprites/animation/player/PlayerAnimation';
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -93,6 +94,7 @@ export default class GameScene extends Phaser.Scene {
     this.createTextures();
     this.load.image("terminator", "assets/images/terminator.png");
     preloadLadyLava(this); // Si ladyLava usa rutas internas, revisa ese archivo también
+    preloadPlayerCat(this);
   }
 
   create() {
@@ -198,7 +200,10 @@ export default class GameScene extends Phaser.Scene {
     // Jugador y controlador (inicia justo por encima de la base)
     this.playerCtrl = new PlayerController(this);
     const playerStartY = baseY - 60;
-    this.player = this.playerCtrl.create(baseX, playerStartY);
+    // Cambia la creación del jugador por el gato animado
+    this.player = spawnPlayerCat(this, { x: baseX, y: playerStartY, animKey: 'player_cat_idle' });
+    // Si tu controlador necesita el sprite, pásalo:
+    this.playerCtrl.player = this.player;
     // Baseline dinámico para el contador de metros (arranca en 0)
     this._metersBaselineY = this.player.y;
     // Reasignar estela para que siga al nuevo player tras restart
@@ -994,6 +999,14 @@ export default class GameScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 1);
     g.fillRect(0, 0, 1, 1);
     g.generateTexture("px", 1, 1);
+
+    // Animación idle para el jugador (simple ejemplo: parpadeo)
+    this.anims.create({
+      key: "player_idle",
+      frames: [{ key: "player", frame: 0 }],
+      frameRate: 2,
+      repeat: -1,
+    });
   }
 
   createLavaParticles() {

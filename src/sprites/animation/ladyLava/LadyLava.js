@@ -10,7 +10,7 @@ export function preloadLadyLava(scene) {
   scene.load.image('ladyLava_6', 'assets/sprites/Boss/LadyLava/6.png');
 }
 
-export function createLadyLavaAnimation(scene, { key = 'ladyLava_walk', frameRate = 4 } = {}) {
+export function createLadyLavaAnimation(scene, { key = 'ladyLava_walk', frameRate = 6 } = {}) {
   if (scene.anims.exists(key)) return key;
   scene.anims.create({
     key,

@@ -148,8 +148,12 @@ export default class PlayerController {
     const onIce  = scene.time.now <= this._onIceUntil;
 
     // --- Movimiento horizontal (con efecto hielo) ---
-    let moveLeft = this.cursors.left.isDown || this.leftPressed || this.leftKeyA.isDown;
-    let moveRight = this.cursors.right.isDown || this.rightPressed || this.rightKeyD.isDown;
+    // Verifica que this.cursors existe antes de acceder a sus propiedades
+    let moveLeft = false, moveRight = false;
+    if (this.cursors) {
+      moveLeft = (this.cursors.left?.isDown || this.leftPressed || this.leftKeyA?.isDown);
+      moveRight = (this.cursors.right?.isDown || this.rightPressed || this.rightKeyD?.isDown);
+    }
 
     // --- Salto táctil automático ---
     // Si se está tocando izquierda o derecha, salta automáticamente
@@ -163,10 +167,10 @@ this.jumpTouchRequested = false;
 
     
 const jumpPressed =
-  Phaser.Input.Keyboard.JustDown(this.jumpKey)   ||
-  Phaser.Input.Keyboard.JustDown(this.jumpKeyUp) ||
-  Phaser.Input.Keyboard.JustDown(this.jumpKeyW)  ||
-  Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
+  (this.jumpKey   && Phaser.Input.Keyboard.JustDown(this.jumpKey))   ||
+  (this.jumpKeyUp && Phaser.Input.Keyboard.JustDown(this.jumpKeyUp)) ||
+  (this.jumpKeyW  && Phaser.Input.Keyboard.JustDown(this.jumpKeyW))  ||
+  (this.cursors && this.cursors.up && Phaser.Input.Keyboard.JustDown(this.cursors.up)) ||
   jumpTouch;
 
     // --- ÚNICO bloque de salto (incluye doble salto) ---
