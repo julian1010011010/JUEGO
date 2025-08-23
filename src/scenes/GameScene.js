@@ -195,16 +195,17 @@ export default class GameScene extends Phaser.Scene {
 
     // Jugador y controlador (inicia justo por encima de la base)
     this.playerCtrl = new PlayerController(this);
-    this.player = this.playerCtrl.create(baseX, baseY - 10, {
-      texture: 'cat_idle_1',
+    // Usa spawnPlayerCat para crear el sprite del gato con animación y tamaño
+    this.player = spawnPlayerCat(this, {
+      x: baseX,
+      y: baseY -100,
       animKey: 'player_cat_idle',
-      body: { w: 24, h: 28 }
+      width: 120,
+      height: 120
     });
-
-    // Dibuja el hitbox del jugador (debug)
-    this.playerHitboxG = this.add.graphics().setDepth(9999);
-
-    // Añade colisión física entre el jugador y el grupo de plataformas
+ 
+ 
+ 
     this.physics.add.collider(this.player, this.platforms);
 
     // Baseline dinámico para el contador de metros (arranca en 0)
