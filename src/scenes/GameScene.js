@@ -194,13 +194,15 @@ export default class GameScene extends Phaser.Scene {
     // Límite global: no permitir spawns debajo de esta línea (por ejemplo, respawns)
     this.platformSpawnMaxY = baseY - gapAboveBase;
 
-    // Jugador y controlador (inicia justo por encima de la base)
-    this.playerCtrl = new PlayerController(this);
+     this.playerCtrl = new PlayerController(this);
 this.player = this.playerCtrl.create(baseX, 0, {
   texture: 'cat_idle_1', // <-- usa el nombre correcto del frame cargado
   animKey: 'player_cat_idle',
   body: { w: 24, h: 28 }
 });
+
+    // Dibuja el hitbox del jugador (debug)
+    this.playerHitboxG = this.add.graphics().setDepth(9999);
 
     // Añade colisión física entre el jugador y el grupo de plataformas
     this.physics.add.collider(this.player, this.platforms);
