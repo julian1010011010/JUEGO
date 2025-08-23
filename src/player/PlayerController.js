@@ -11,44 +11,121 @@ export default class PlayerController {
   /**
    * @param {Phaser.Scene} scene
    */
-  constructor(scene) {
+ 
+ constructor(scene) {
     this.scene = scene;
     this.sfx = new SoundFX(scene);
 
-
-    // Para salto con touch
-    this.jumpTouchRequested = false;
-
-    // Entidades / input
+    // --- Estado del jugador (se movió aquí) ---
     this.player = null;
     this.cursors = null;
     this.jumpKey = null;
     this.jumpKeyUp = null;
     this.jumpKeyW = null;
+    this.leftKeyA = null;
+    this.rightKeyD = null;
+    this.downKeyS = null;
 
-    // Estado de piso y plataforma actual
+    // Saltos / piso / plataforma
+    this.maxJumps = 2;
+    this.remainingJumps = 0;
     this.lastGroundTime = 0;
     this.currentPlatform = null;
     this._onIceUntil = 0;
 
-    // Entrada táctil
+    // Touch
+    this.jumpTouchRequested = false;
     this.leftPressed = false;
     this.rightPressed = false;
 
-    // Config de plataformas escurridizas
+    // Escurridizas
     this.dodgerDx = 80;
     this.dodgerMinDy = 30;
     this.dodgerMaxDy = 160;
     this.dodgerCooldown = 700;
 
-    // Gestor de color
+    // Limpieza
+    this._deadlyOverlap = null;
     this.playerColorManager = null;
-
-    // Saltos
-    this.maxJumps = 2;        // <- doble salto
-    this.remainingJumps = 0;  // se reinicia al aterrizar
   }
+  /**
+   * NUEVO: adjunta un sprite existente del jugador y configura todo.
+   * @param {Phaser.Types.Physics.Arcade.SpriteWithDynamicBody} sprite
+   * @param {{ body?: {w:number,h:number}, animKey?: string }} opts
+   */
+  attach(sprite, { body = { w: 24, h: 28 }, animKey = 'player_cat_idle' } = {}) {
+    const { scene } = this;
+    this.player = sprite;
 
+    // Física base del sprite
+    this.player.setOrigin(0.5, 1);
+    this.player.setBounce(0.05);
+    this.player.setCollideWorldBounds(false);
+
+    // Hitbox centrado
+    if (this.player.body?.setSize) {
+      this.player.body.setSize(body.w, body.h, true);
+      this.player.body.setOffset(
+        Math.round((this.player.width  - body.w) / 2),
+        Math.round((this.player.height - body.h))
+      );
+    }
+
+    // Input teclado
+    this.cursors  = scene.input.keyboard.createCursorKeys();
+    this.jumpKey  = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.jumpKeyUp= scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+    this.jumpKeyW = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+    this.leftKeyA = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+    this.rightKeyD= scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+    this.downKeyS = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    scene.input.keyboard.addCapture([32,38,87,65,68,83]);
+
+    // Touch zones
+    this._setupTouchControls();
+
+    // Collider con plataformas (centralizado en el controller)
+    scene.physics.add.collider(
+      this.player,
+      scene.platforms,
+      (p, plat) => {
+        // Reinicio de coyote/estado al tocar arriba
+        if (p.body?.touching?.down || p.body?.blocked?.down) {
+          this.lastGroundTime = scene.time.now;
+          this.currentPlatform = plat || null;
+          // Si la plataforma es temporizada, etc… (si tienes esa lógica, colócala aquí)
+        }
+      },
+      (p, plat) => this._platformProcess(p, plat),
+      this
+    );
+
+    // Reaplicar hitbox si cambia frame
+    this.player.on?.('animationupdate', () => {
+      if (!this.player?.body) return;
+      this.player.body.setSize(body.w, body.h, true);
+      this.player.body.setOffset(
+        Math.round((this.player.width  - body.w) / 2),
+        Math.round((this.player.height - body.h))
+      );
+    });
+
+    // Animación si existe
+    if (animKey && scene.anims.exists(animKey)) {
+      this.player.play({ key: animKey, ignoreIfPlaying: true });
+    }
+
+    // Estado de saltos
+    this.remainingJumps = this.maxJumps;
+
+    // Limpieza al cerrar escena
+    scene.events.once('shutdown', () => this.destroy());
+    return this.player;
+  }
+  /** (opcional) API para congelar control tipo hielo hasta cierto timestamp */
+  setOnIceUntil(timestampMs) {
+    this._onIceUntil = timestampMs;
+  }
   /** Crea sprite, input y colisión con plataformas. */
 // PlayerController.js
 create(x, y, {

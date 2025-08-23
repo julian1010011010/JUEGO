@@ -196,15 +196,23 @@ export default class GameScene extends Phaser.Scene {
     // Jugador y controlador (inicia justo por encima de la base)
     this.playerCtrl = new PlayerController(this);
     // Usa spawnPlayerCat para crear el sprite del gato con animación y tamaño
-    this.player = spawnPlayerCat(this, {
-      x: baseX,
-      y: baseY -100,
-      animKey: 'player_cat_idle',
-      width: 120,
-      height: 120
-    });
- 
- 
+
+    // 1) Crea el sprite con tu helper (conservas anim/tamaño)
+this.player = spawnPlayerCat(this, {
+  x: baseX,
+  y: baseY - 100,
+  animKey: 'player_cat_idle',
+  width: 120,
+  height: 120
+});
+
+// 2) Crea el controller y adjunta el sprite existente
+this.playerCtrl = new PlayerController(this);
+this.playerCtrl.attach(this.player, {
+  body: { w: 24, h: 28 },    // ajusta a tu hitbox real
+  animKey: 'player_cat_idle' // ya cargada por tu helper
+});
+
  
     this.physics.add.collider(this.player, this.platforms);
 
