@@ -88,8 +88,7 @@ export default class GameScene extends Phaser.Scene {
 
   preload() {
     // Corrige la carga del fondo
-    SoundFX.preload(this);
-    this.load.image("bg", "assets/sprites/fondo/1.png");
+    SoundFX.preload(this);  
     this.load.audio("sfx-sonar", "assets/audio/sonar.mp3"); // <-- Cambiado a assets/audio/
     this.createTextures();
     this.load.image("terminator", "assets/images/terminator.png");
@@ -97,7 +96,7 @@ export default class GameScene extends Phaser.Scene {
     preloadPlayerCat(this);
   }
 
-  create() {
+  create() {  
     // Preguntar por nombre y edad si es la primera vez
     this.userInfo = new UserInfo();
 
@@ -194,12 +193,13 @@ export default class GameScene extends Phaser.Scene {
     // Límite global: no permitir spawns debajo de esta línea (por ejemplo, respawns)
     this.platformSpawnMaxY = baseY - gapAboveBase;
 
-     this.playerCtrl = new PlayerController(this);
-this.player = this.playerCtrl.create(baseX, 0, {
-  texture: 'cat_idle_1', // <-- usa el nombre correcto del frame cargado
-  animKey: 'player_cat_idle',
-  body: { w: 24, h: 28 }
-});
+    // Jugador y controlador (inicia justo por encima de la base)
+    this.playerCtrl = new PlayerController(this);
+    this.player = this.playerCtrl.create(baseX, baseY - 10, {
+      texture: 'cat_idle_1',
+      animKey: 'player_cat_idle',
+      body: { w: 24, h: 28 }
+    });
 
     // Dibuja el hitbox del jugador (debug)
     this.playerHitboxG = this.add.graphics().setDepth(9999);
@@ -240,7 +240,7 @@ this.player = this.playerCtrl.create(baseX, 0, {
 
     // Contador de metros ascendidos (texto normal estilo pixel art)
     this.metersText = this.add.text(12, 12, "0 m", {
-      fontFamily: "monospace",
+      fontFamily: "s",
       fontSize: "24px",
       color: "#00e5ff",
       stroke: "#222",
