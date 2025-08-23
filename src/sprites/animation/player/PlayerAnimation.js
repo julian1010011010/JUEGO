@@ -5,18 +5,115 @@
  * Archivo esperado: public/assets/sprites/player/cat/idle.png
  * con N frames del mismo tamaño en una fila.
  * @param {Phaser.Scene} scene
- * @param {{ path?: string, key?: string, frameWidth?: number, frameHeight?: number, endFrame?: number }} [opts]
- */
-export function preloadPlayerCat(scene, {
-  path = 'assets/sprites/player/cat.png',
-  key = 'player_cat_idle_sheet',
-  frameWidth = 64,
-  frameHeight = 64,
-  endFrame = 14 // 0..14 => 15 frames
-} = {}) {
-  scene.load.spritesheet(key, path, { frameWidth, frameHeight, endFrame });
+ * @param {{ path?: string, key?: string, frameWidth?: number, frameHeight?: number, margin?: number, spacing?: number }} [opts]
+ */ 
+export function preloadPlayerSheet(
+  scene,
+  {
+    path = "assets/sprites/player/player.png",
+    key = "player_sheet",
+    frameWidth = 64,
+    frameHeight = 64,
+    margin = 0,
+    spacing = 0,
+  } = {}
+) {
+  if (!scene?.load) {
+    throw new Error(
+      "[preloadPlayerSheet] Llama esta función dentro de scene.preload()."
+    );
+  }
+  scene.load.spritesheet(key, path, {
+    frameWidth,
+    frameHeight,
+    margin,
+    spacing,
+  });
 }
 
+/**
+ * Crea animaciones por fila de un spritesheet.
+ * rows: [{ name, row, from, to, frameRate=12, repeat=-1 }]
+ */
+export function createRowAnimations(
+  scene,
+  { sheetKey = "player_sheet", rows = [], frameRate = 12, repeat = -1 } = {}
+) {
+  if (!scene.textures.exists(sheetKey)) {
+    throw new Error(
+      `[AnimRows] No existe textura "${sheetKey}". Llama preloadPlayerSheet() en preload().`
+    );
+  }
+
+  const tex = scene.textures.get(sheetKey);
+  const img = tex.getSourceImage();
+  const base = tex.frames.__BASE;
+  const fw = base?.width ?? 64;
+  const cols = Math.max(1, Math.floor(img.width / fw));
+
+  for (const r of rows) {
+    if (!r?.name) continue;
+    if (scene.anims.exists(r.name)) continue;
+
+    const start = r.row * cols + r.from;
+    const end = r.row * cols + r.to;
+
+    const frames = scene.anims.generateFrameNumbers(sheetKey, { start, end });
+    scene.anims.create({
+      key: r.name,
+      frames,
+      frameRate: r.frameRate ?? frameRate,
+      repeat: r.repeat ?? repeat,
+    });
+  }
+}
+/**
+ * Crea el sprite desde el sheet y reproduce una anim de inicio.
+ */
+export function spawnPlayerFromSheet(
+  scene,
+  {
+    x = 100,
+    y = 300,
+    sheetKey = "player_sheet",
+    animKey = "idle",
+    origin = { x: 0.5, y: 1 },
+    width,
+    height,
+    scale,
+    bodyShrinkPx = 6,
+  } = {}
+) {
+  if (!scene.textures.exists(sheetKey)) {
+    throw new Error(`[spawnPlayerFromSheet] Falta textura "${sheetKey}".`);
+  }
+  const s = scene.physics.add.sprite(x, y, sheetKey, 0).setOrigin(origin.x, origin.y);
+
+  // Escalado visual
+  const fw = s.frame.width;
+  const fh = s.frame.height;
+  if (Number.isFinite(width) && Number.isFinite(height)) {
+    const ratio = Math.min(width / fw, height / fh);
+    s.setScale(ratio);
+    s.setDisplaySize(fw * ratio, fh * ratio);
+  } else if (Number.isFinite(scale)) {
+    s.setScale(scale);
+  }
+
+  // Hitbox compacto
+  const bodyW = Math.max(2, s.displayWidth - bodyShrinkPx);
+  const bodyH = Math.max(2, s.displayHeight - bodyShrinkPx);
+  s.body.setSize(bodyW, bodyH, true);
+  s.body.setOffset((s.displayWidth - bodyW) / 2, (s.displayHeight - bodyH) / 2);
+  s.body.updateFromGameObject();
+
+  if (scene.anims.exists(animKey)) {
+    s.play({ key: animKey, ignoreIfPlaying: true });
+  } else {
+    console.warn(`[spawnPlayerFromSheet] Anim "${animKey}" no existe todavía.`);
+  }
+  return s;
+}
 /**
  * Crea la animación idle del gato.
  * @param {Phaser.Scene} scene
@@ -29,12 +126,11 @@ export function createPlayerCatIdle(scene, {
   frameRate = 12,
   repeat = -1
 } = {}) {
-  if (!scene.textures.exists(sheetKey)) {
-    throw new Error(`[PlayerCat] Falta textura ${sheetKey}. ¿Ejecutaste preloadPlayerCat()?`);
+  if (!scene.textures.exists(sheetKey)) { 
   }
   if (scene.anims.exists(animKey)) return animKey;
 
-  const total = scene.textures.get(sheetKey).frameTotal; // total de frames del sheet
+  const total = scene.textures.get(sheetKey).frameTotal;
   const frames = scene.anims.generateFrameNumbers(sheetKey, { start: 0, end: total - 1 });
 
   scene.anims.create({ key: animKey, frames, frameRate, repeat });
@@ -43,8 +139,6 @@ export function createPlayerCatIdle(scene, {
 
 /**
  * Ajusta el tamaño visual y sincroniza el cuerpo físico.
- * - Si {width,height}: mantiene proporción del frame base.
- * - Si {scale}: aplica escala directa.
  */
 function applySizeAndBody(sprite, { width, height, scale, bodyShrinkPx = 6 } = {}) {
   const fw = sprite.frame.width;
@@ -53,13 +147,11 @@ function applySizeAndBody(sprite, { width, height, scale, bodyShrinkPx = 6 } = {
   if (width && height) {
     const ratio = Math.min(width / fw, height / fh);
     sprite.setScale(ratio);
-    // displaySize queda coherente con la escala aplicada
     sprite.setDisplaySize(fw * ratio, fh * ratio);
   } else if (scale) {
     sprite.setScale(scale);
   }
 
-  // Actualizar hitbox (ligeramente más pequeño para evitar colisiones por “pelaje”)
   const bodyW = Math.max(2, sprite.displayWidth - bodyShrinkPx);
   const bodyH = Math.max(2, sprite.displayHeight - bodyShrinkPx);
   sprite.body.setSize(bodyW, bodyH, true);
@@ -85,7 +177,7 @@ export function spawnPlayerCat(scene, {
   sheetKey = 'player_cat_idle_sheet',
   animKey = 'player_cat_idle',
   frameRate = 12, repeat = -1,
-  origin = { x: 0.5, y: 1 },  // ancla en “pies”
+  origin = { x: 0.5, y: 1 },
   scale,
   width, height,
   gravityY,
@@ -103,7 +195,8 @@ export function spawnPlayerCat(scene, {
   }
   if (immovable) sprite.body.immovable = true;
 
-  applySizeAndBody(sprite, { width, height, scale, bodyShrinkPx });
-  sprite.play(key);
-  return sprite;
+ 
 }
+ 
+
+ 

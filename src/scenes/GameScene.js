@@ -13,11 +13,16 @@ import {
   createLadyLavaAnimation,
 } from "../sprites/animation/LadyLava/ladyLava.js";
 import { LadyLavaText } from "../ui/LadyLavaText.js";
-import { MissileText } from "../ui/MissileText.js";
-import { preloadPlayerCat, createPlayerCatIdle, spawnPlayerCat } from '../sprites/animation/player/PlayerAnimation';
-
+import { MissileText } from "../ui/MissileText.js"; 
+import {
+  preloadPlayerSheet,
+  createRowAnimations,
+  spawnPlayerFromSheet
+} from '../sprites/animation/player/PlayerAnimation';
 export default class GameScene extends Phaser.Scene {
   constructor() {
+
+    
     super("game");
 
     //#region Variables
@@ -93,298 +98,260 @@ export default class GameScene extends Phaser.Scene {
     this.createTextures();
     this.load.image("terminator", "assets/images/terminator.png");
     preloadLadyLava(this); // Si ladyLava usa rutas internas, revisa ese archivo también
-    preloadPlayerCat(this);
+      // ✅ Cargar el sheet UNA VEZ con la key que usaremos en todo el flujo
+  preloadPlayerSheet(this, {
+    path: "assets/sprites/player/player.png",
+    key: "player_sheet",
+    frameWidth: 64,
+    frameHeight: 64,
+    margin: 0,
+    spacing: 0,
+  });
   }
 
-  create() {  
-    // Preguntar por nombre y edad si es la primera vez
-    this.userInfo = new UserInfo();
+create() {
+  // ────────────────────────────────────────────────────────────────────────────
+  // 1) Bloque de inicialización general de la escena
+  // ────────────────────────────────────────────────────────────────────────────
+  // Datos de usuario (si no existen, pausamos el arranque de la escena)
+  this.userInfo = new UserInfo();
+  if (!this.userInfo.data) {
+    document.addEventListener("user-info-ready", () => this.scene.restart(), { once: true });
+    return;
+  }
 
-    // Si no hay datos de usuario, espera el evento antes de continuar
-    if (!this.userInfo.data) {
-      document.addEventListener(
-        "user-info-ready",
-        () => {
-          // Reinicia la escena para continuar el juego
-          this.scene.restart();
-        },
-        { once: true }
-      );
-      return; // No inicializar el juego aún
-    }
+  // Audio y fondo
+  this.sfx = new SoundFX(this);
 
-    // Añade el fondo y guarda la referencia
-    this.sfx = new SoundFX(this);
+  // Fondo: fábrica + fondo animado + partículas ambientales
+  this.bg = new BackgroundFactory(this, this.scale.width, this.scale.height, 8);
+  this.bg.createBackground("volcano_sr", { mode: "animated", fps: 12 });
+  this.bg.createVolcanoAmbientParticles();
 
-    // Usar BackgroundFactory
-    // 1) Instancia la fábrica
-    this.bg = new BackgroundFactory(
-      this,
-      this.scale.width,
-      this.scale.height,
-      8
-    );
+  // Lady Lava (sprite animado oculto hasta la cinemática)
+  const walkKey = createLadyLavaAnimation(this);
+  this.ladyLavaSprite = this.add
+    .sprite(this.scale.width / 2, this.scale.height - this.lavaHeight - 40, "ladyLava_1")
+    .setDepth(0)
+    .setVisible(false);
+  this.ladyLavaSprite.play(walkKey);
 
-    // 2) Crea fondo (elige uno)
-    // this.bg.createBackground('volcano',    { mode:'animated', fps:12 })
-    this.bg.createBackground("volcano_sr", { mode: "animated", fps: 12 });
-    // Parallax: this.bg.createBackground('volcano_sr', { mode:'parallax', layers:3 })
+  // Pausa/reanuda música por cambio de foco
+  this.game.events.on(Phaser.Core.Events.BLUR,  () => this.music?.pause());
+  this.game.events.on(Phaser.Core.Events.FOCUS, () => this.music?.resume());
 
-    // 3) Partículas ambientales (opcional)
-    this.bg.createVolcanoAmbientParticles();
-    // Opción 1: fondo animado por sprites
+  const width  = this.scale.width;
+  const height = this.scale.height;
 
-    // 3) Animación de LadyLava (crea si no existe)
-    const walkKey = createLadyLavaAnimation(this);
-    this.ladyLavaSprite = this.add
-      .sprite(
-        this.scale.width / 2,
-        this.scale.height - this.lavaHeight - 40,
-        "ladyLava_1"
-      )
-      .setDepth(0)
-      .setVisible(false);
-    this.ladyLavaSprite.play(walkKey);
+  // Estado base de la escena (NO reseteamos estado que ahora vive en PlayerController)
+  this.physics.resume?.();
+  this._ended = false;
+  this._playedLavaAnim = false;
+  this.hasAscended = false;
+  this.score = 0;
+  this.lavaRiseBoost = 1;
 
-    // Pausar/Reanudar al cambiar de foco (opcional)
-    this.game.events.on(Phaser.Core.Events.BLUR, () => this.music?.pause());
-    this.game.events.on(Phaser.Core.Events.FOCUS, () => this.music?.resume());
+  // Textura 1x1 para partículas/emisores
+  this.ensurePxTexture();
 
-    // Si quieres mostrar el nombre y edad en consola:
-    // console.log(`Usuario: ${this.userInfo.getName()}, Edad: ${this.userInfo.getAge()}`)
+  // ────────────────────────────────────────────────────────────────────────────
+  // 2) Plataformas
+  // ────────────────────────────────────────────────────────────────────────────
+  this.platforms = this.physics.add.staticGroup();
+  this.platformFactory = new PlatformFactory(this);
 
-    const width = this.scale.width;
-    const height = this.scale.height;
+  // Crea la “columna” inicial de plataformas
+  const startOffset   = Number(gameConfig?.platforms?.startYOffset)   || 50;
+  const gapAboveBase  = Number(gameConfig?.platforms?.minGapAboveBase)|| 40;
+  const baseY         = height - (startOffset + 10);
+  const baseX         = width / 2;
+  this.platformBaseX  = baseX;
+  const startY        = baseY - gapAboveBase;
 
-    // Reanudar física y resetear estado al reiniciar
-    this.physics.resume?.();
-    this._ended = false;
-    this._playedLavaAnim = false;
-    this.hasAscended = false;
-    this.score = 0;
-    this.lastGroundTime = 0;
-    this.currentPlatform = null;
-    this._onIceUntil = 0;
-    this.lavaRiseBoost = 1;
+  for (let i = 0; i < 12; i++) {
+    const x = this.pickSpawnX();
+    const y = startY - i * 70;
+    this.platformFactory.spawn(x, y, this.pickPlatformType());
+  }
 
-    // Asegura la textura 1x1 para cualquier uso antes de crear emisores/misiles
-    this.ensurePxTexture();
+  // Plataforma base (estática)
+  const plataformaBase = this.platforms.create(baseX, baseY + 30, "platform");
+  plataformaBase.setScale(1, 1).refreshBody();
 
-    // Grupo de plataformas y fábrica
-    this.platforms = this.physics.add.staticGroup();
-    this.platformFactory = new PlatformFactory(this);
+  // Límite para spawn futuros
+  this.platformSpawnMaxY = baseY - gapAboveBase;
 
-    // Crear plataformas iniciales
-    const startOffset = Number(gameConfig?.platforms?.startYOffset) || 50;
-    const gapAboveBase = Number(gameConfig?.platforms?.minGapAboveBase) || 40;
-    const baseY = height - (startOffset + 10);
-    const baseX = width / 2;
-    this.platformBaseX = baseX;
-    const startY = baseY - gapAboveBase;
-    for (let i = 0; i < 12; i++) {
-      const x = this.pickSpawnX();
-      const y = startY - i * 70;
-      this.platformFactory.spawn(x, y, this.pickPlatformType());
-    }
-    // Plataforma base bajo el jugador (estática, parte del grupo)
-    const plataformaBase = this.platforms.create(baseX, baseY + 30, "platform");
-    plataformaBase.setScale(1, 1).refreshBody(); // Ajusta el tamaño si es necesario
+  // ────────────────────────────────────────────────────────────────────────────
+  // 3) Jugador y controlador (ANIMACIONES POR FILA + SPAWN DESDE SHEET)
+  // ────────────────────────────────────────────────────────────────────────────
+  // IMPORTANTE:
+  //  - En preload() debes haber llamado a preloadPlayerSheet(this, { key:'player_sheet', frameWidth:64, frameHeight:64 })
+  //  - Aquí definimos las animaciones por FILA del spritesheet UNA sola vez.
+  // Definir animaciones por fila del spritesheet
+  createRowAnimations(this, {
+    sheetKey: 'player_sheet',
+    rows: [
+      { name: 'idle', row: 0, from: 0,  to: 11, frameRate: 10, repeat: -1 },
+      { name: 'walk', row: 1, from: 0,  to: 11, frameRate: 14, repeat: -1 },
+      { name: 'jump', row: 5, from: 0,  to:  7, frameRate: 16, repeat:  0 },
+      { name: 'fall', row: 6, from: 0,  to:  5, frameRate: 12, repeat: -1 },
+      // Agrega más según tu sheet: run, skid, land, hurt, crouch, spin, etc.
+    ],
+  });
 
-    // Límite global: no permitir spawns debajo de esta línea (por ejemplo, respawns)
-    this.platformSpawnMaxY = baseY - gapAboveBase;
+  // Crea el sprite del jugador DESDE el sheet (misma key que en preload)
+  this.player = spawnPlayerFromSheet(this, {
+    x: baseX,
+    y: baseY - 200,
+    sheetKey: 'player_sheet',
+    animKey: 'idle',                          // anim inicial
+    width:  gameConfig.player.width,          // tamaño visual
+    height: gameConfig.player.height,
+  });
 
-    // Jugador y controlador (inicia justo por encima de la base)
-    this.playerCtrl = new PlayerController(this);
-    // Usa spawnPlayerCat para crear el sprite del gato con animación y tamaño
+  // Crea el PlayerController UNA sola vez y adjunta el sprite
+  this.playerCtrl = new PlayerController(this);
+  this.playerCtrl.configureSheet({ sheetKey: 'player_sheet', frameWidth: 64, frameHeight: 64 });
+  this.playerCtrl.attach(this.player, {
+    body: gameConfig.player?.body ?? { w: 24, h: 28 },  // hitbox compacto (no uses el tamaño visual)
+    animKey: 'idle',
+  });
+  // NOTA: NO añadas aquí otro collider (attach ya crea el collider player↔platforms)
 
-    // 1) Crea el sprite con tu helper (conservas anim/tamaño)
-this.player = spawnPlayerCat(this, {
-  x: baseX,
-  y: baseY - 100,
-  animKey: 'player_cat_idle',
-  width: 120,
-  height: 120
-});
+  // ────────────────────────────────────────────────────────────────────────────
+  // 4) HUD / Cámara / Lava / Partículas
+  // ────────────────────────────────────────────────────────────────────────────
+  // Baseline para contador de metros
+  this._metersBaselineY = this.player.y;
 
-// 2) Crea el controller y adjunta el sprite existente
-this.playerCtrl = new PlayerController(this);
-this.playerCtrl.attach(this.player, {
-  body: { w: 24, h: 28 },    // ajusta a tu hitbox real
-  animKey: 'player_cat_idle' // ya cargada por tu helper
-});
+  // HUD “metros”
+  this.metersText = this.add.text(12, 12, "0 m", {
+    fontFamily: "s",
+    fontSize: "24px",
+    color: "#00e5ff",
+    stroke: "#222",
+    strokeThickness: 3,
+    shadow: { offsetX: 2, offsetY: 2, color: "#000", blur: 0, fill: true },
+  })
+    .setOrigin(0,0)
+    .setScrollFactor(0,0)
+    .setDepth(1000);
 
- 
-    this.physics.add.collider(this.player, this.platforms);
+  // Cámara: sólo sube (no baja)
+  this.cameras.main.stopFollow();
+  this.cameras.main.setScroll(0, 0);
+  this._cameraMinY = 0;
 
-    // Baseline dinámico para el contador de metros (arranca en 0)
-    this._metersBaselineY = this.player.y;
-    // Reasignar estela para que siga al nuevo player tras restart
-    if (this.platformFactory?.constructor?.ensureTrailSystem) {
-      this.platformFactory.constructor.ensureTrailSystem(this);
-      const trail = this.playerTrail;
-      const emitter = trail?.emitter;
-      if (emitter) {
-        if (emitter.startFollow) emitter.startFollow(this.player);
-        emitter.manager?.setDepth?.((this.player.depth ?? 0) - 1);
-        if (emitter.setEmitZone) {
-          // no-op, solo asegurar API
-        }
-        emitter.on = true;
-        emitter.emitting = true;
-        if (emitter.resume) emitter.resume();
-        if (emitter.start) emitter.start();
+  // Lava visual
+  const lavaY = height - this.lavaHeight;
+  this.lava = this.add.tileSprite(0, lavaY, width, this.lavaHeight, "lava")
+    .setOrigin(0, 0)
+    .setDepth(2);
+
+  // Partículas de lava
+  this.createLavaParticles();
+
+  // Misiles de lava + overlap
+  this.lavaMissiles = this.physics.add.group();
+  this.physics.add.overlap(
+    this.player,
+    this.lavaMissiles,
+    (_player, missile) => {
+      if (this._ended || !this.canLose || !missile || !missile.active || missile._waiting) return;
+      const pb = this.player.body;
+      const mb = missile.body;
+      if (!pb || !mb) return;
+
+      const overlapX = Math.max(pb.left, mb.left) < Math.min(pb.right, mb.right);
+      const overlapY = Math.max(pb.top,  mb.top ) < Math.min(pb.bottom, mb.bottom);
+
+      if (gameConfig?.debug?.collisions) {
+        this.debugLogMissileOverlap(pb, mb, overlapX, overlapY, missile);
+        this.debugDrawMissileOverlap(pb, mb);
       }
-      if (trail) trail.following = true;
-    }
+      if (overlapX && overlapY) {
+        if (this.powerManager?.consumeShieldWithBounce?.("missile", missile)) return;
+        this.gameOver("missile");
+      }
+    },
+    (_player, missile) => !!(missile && missile.active && !missile._waiting),
+    this
+  );
 
-    // Poderes temporales (instanciar después de crear al jugador)
-    this.powerManager = new PowerManager(this);
-    // Generar posibles poderes sobre las plataformas ya creadas
-    this.platforms.children.iterate((plat) => {
-      try {
-        this.powerManager?.maybeSpawnAbovePlatform?.(plat);
-        // ...existing code...
-      } catch {}
-    });
+  // ────────────────────────────────────────────────────────────────────────────
+  // 5) UI DOM / Timers / Ciclo de vida
+  // ────────────────────────────────────────────────────────────────────────────
+  this.scoreText = document.getElementById("score");
+  this.timerEl   = document.getElementById("timer");
+  this.overlay   = document.getElementById("overlay");
+  this.finalText = document.getElementById("final");
+  if (this.overlay) this.overlay.style.display = "none";
 
-    // Contador de metros ascendidos (texto normal estilo pixel art)
-    this.metersText = this.add.text(12, 12, "0 m", {
-      fontFamily: "s",
-      fontSize: "24px",
-      color: "#00e5ff",
-      stroke: "#222",
-      strokeThickness: 3,
-      shadow: {
-        offsetX: 2,
-        offsetY: 2,
-        color: "#000",
-        blur: 0,
-        fill: true,
-      },
-    });
-    this.metersText.setOrigin(0, 0);
-    // Fijar a la cámara y por encima
-    this.metersText.setScrollFactor(0, 0);
-    this.metersText.setDepth(1000);
-
-    // La colisión e input del jugador los maneja PlayerController
-
-    // Cámara: reset al inicio y solo-subida (sin seguir hacia abajo)
-    this.cameras.main.stopFollow();
-    this.cameras.main.setScroll(0, 0);
-    this._cameraMinY = 0;
-
-    // Lava visual (la muerte se decide con borde inferior de cámara)
-    const lavaY = height - this.lavaHeight;
-    this.lava = this.add
-      .tileSprite(0, lavaY, width, this.lavaHeight, "lava")
-      .setOrigin(0, 0)
-      .setDepth(2);
-
-    // Partículas de lava: fuego y piedritas pixeladas (requiere 'px')
-    this.createLavaParticles();
-
-    // Grupo de misiles y overlap (siempre)
-    this.lavaMissiles = this.physics.add.group();
-    this.physics.add.overlap(
-      this.player,
-      this.lavaMissiles,
-      // Solo mata si hay intersección real (AABB en X y Y) y el misil ya fue lanzado
-      (_player, missile) => {
-        if (
-          this._ended ||
-          !this.canLose ||
-          !missile ||
-          !missile.active ||
-          missile._waiting
-        )
-          return;
-        const pb = this.player.body;
-        const mb = missile.body;
-        if (!pb || !mb) return;
-        const overlapX =
-          Math.max(pb.left, mb.left) < Math.min(pb.right, mb.right);
-        const overlapY =
-          Math.max(pb.top, mb.top) < Math.min(pb.bottom, mb.bottom);
-
-        if (gameConfig?.debug?.collisions) {
-          this.debugLogMissileOverlap(pb, mb, overlapX, overlapY, missile);
-          this.debugDrawMissileOverlap(pb, mb);
-        }
-        if (overlapX && overlapY) {
-          // Si hay escudo, consumirlo y rebotar; si no, game over
-          if (this.powerManager?.consumeShieldWithBounce?.("missile", missile))
-            return;
-          this.gameOver("missile");
-        }
-      },
-      // processCallback: solo evaluar misiles activos y no en espera
-      (_player, missile) => !!(missile && missile.active && !missile._waiting),
-      this
-    );
-
-    // UI DOM
-    this.scoreText = document.getElementById("score");
-    this.timerEl = document.getElementById("timer");
-    this.overlay = document.getElementById("overlay");
-    this.finalText = document.getElementById("final");
-    if (this.overlay) this.overlay.style.display = "none";
-    const restartBtn = document.getElementById("restart");
-    if (restartBtn) {
-      restartBtn.onclick = () => {
-        // Reinicio duro equivalente a F5
-        window.location.reload();
-      };
-    }
-
-    // Gracia inicial
-    this.canLose = false;
-    this.time.delayedCall(800, () => (this.canLose = true));
-
-    // Iniciar spawner tras el primer frame (evita carreras tras F5/reintentar)
-    this.events.once("postupdate", () => {
-      if (this.isLavaMissileEnabled()) this.startLavaMissileSpawner();
-    });
-
-    // Limpiar al reiniciar/cerrar escena
-    this.events.once("shutdown", () => {
-      this._lavaMissileTimer?.remove(false);
-      this._lavaMissileTimer = null;
-      // Limpieza segura del grupo de misiles
-      this.clearLavaMissiles();
-      this.lavaFlames?.destroy();
-      this.lavaRocks?.destroy();
-      // Limpieza del controlador de jugador
-      this.playerCtrl?.destroy?.();
-      this.playerCtrl = null;
-      this.powerManager?.deactivate?.();
-      this.powerManager = null;
-      // Quitar superficie de lava si existiera
-      try {
-        if (this.lavaSurfaceCollider) {
-          this.physics.world.removeCollider(this.lavaSurfaceCollider);
-          this.lavaSurfaceCollider = null;
-        }
-      } catch {}
-      try {
-        this.lavaSurface?.destroy?.();
-        this.lavaSurface = null;
-      } catch {}
-    });
-
-    // Inicializa estado de cruce de plataformas
-    this.platforms.children.iterate((plat) => {
-      if (!plat) return;
-      plat.lastState = this.player.y < plat.y - 8 ? "above" : "below";
-    });
-
-    // Cronómetro
-    this.startTime = this.time.now;
-
-    this.ladyLavaText = new LadyLavaText(this);
-
-    this.MissileText = new MissileText(this);
+  const restartBtn = document.getElementById("restart");
+  if (restartBtn) {
+    restartBtn.onclick = () => window.location.reload(); // reinicio “duro”
   }
+
+  // “Gracia” inicial tras spawnear
+  this.canLose = false;
+  this.time.delayedCall(800, () => (this.canLose = true));
+
+  // Iniciar spawner de misiles (si la feature está habilitada)
+  this.events.once("postupdate", () => {
+    if (this.isLavaMissileEnabled()) this.startLavaMissileSpawner();
+  });
+
+  // Limpieza al cerrar/reiniciar escena
+  this.events.once("shutdown", () => {
+    this._lavaMissileTimer?.remove(false);
+    this._lavaMissileTimer = null;
+    this.clearLavaMissiles();
+    this.lavaFlames?.destroy();
+    this.lavaRocks?.destroy();
+
+    // Controller y poderes
+    this.playerCtrl?.destroy?.();
+    this.playerCtrl = null;
+    this.powerManager?.deactivate?.();
+    this.powerManager = null;
+
+    // Superficie de lava (si existe)
+    try {
+      if (this.lavaSurfaceCollider) {
+        this.physics.world.removeCollider(this.lavaSurfaceCollider);
+        this.lavaSurfaceCollider = null;
+      }
+    } catch {}
+    try {
+      this.lavaSurface?.destroy?.();
+      this.lavaSurface = null;
+    } catch {}
+  });
+
+  // Inicializa estado de cruce en plataformas (para el scoring)
+  this.platforms.children.iterate((plat) => {
+    if (!plat) return;
+    plat.lastState = this.player.y < plat.y - 8 ? "above" : "below";
+  });
+
+  // Cronómetro
+  this.startTime = this.time.now;
+
+  // UI de narrativa
+  this.ladyLavaText = new LadyLavaText(this);
+  this.MissileText  = new MissileText(this);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // 6) Poderes (después del jugador)
+  // ────────────────────────────────────────────────────────────────────────────
+  this.powerManager = new PowerManager(this);
+  this.platforms.children.iterate((plat) => {
+    try {
+      this.powerManager?.maybeSpawnAbovePlatform?.(plat);
+    } catch {}
+  });
+}
+
 
   LevelControl() {
     if (!this.metersText || !this.player) return;
