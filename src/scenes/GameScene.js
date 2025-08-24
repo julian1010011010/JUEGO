@@ -23,7 +23,7 @@ import {
 
 //import PlayerCharacter from "../sprites/animation/player/Rocko.js";
  //import PlayerCharacter from "../sprites/animation/player/Mocko.js"; 
- import PlayerCharacter from "../sprites/animation/player/Start.js";
+ import PlayerCharacter from "../sprites/animation/player/Rocko.js";
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super("game");
