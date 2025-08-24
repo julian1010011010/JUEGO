@@ -21,10 +21,9 @@ import {
   spawnPlayerFromSheet,
 } from "../sprites/animation/player/PlayerAnimation";
 
-import RockoPlayer from "../sprites/animation/player/Rocko.js";
- import PlayerMocko from "../sprites/animation/player/Mocko.js";
-
-
+//import PlayerCharacter from "../sprites/animation/player/Rocko.js";
+ //import PlayerCharacter from "../sprites/animation/player/Mocko.js"; 
+ import PlayerCharacter from "../sprites/animation/player/Start.js";
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super("game");
@@ -201,9 +200,9 @@ create() {
   // ⚠ Requiere: 
   // import PlayerController from "../player/PlayerController";
 
-  const pFactory = new PlayerMocko(this, {
+  const pFactory = new PlayerCharacter(this, {
     fw: 64, fh: 64,
-    frames: { idle: 6, walk: 8, jump: 4, fall: 2 },
+    frames: { idle: 12, walk: 8, jump: 4, fall: 2 },
     keyPrefix: "pchar"
   });
 
@@ -213,6 +212,9 @@ create() {
     { anim: "idle", display: { w: gameConfig.player.width, h: gameConfig.player.height } }
   );
 
+
+
+  
   this.player = player;
 
   // Controller con collider y anim por estado

@@ -58,11 +58,11 @@ export function playLavaDeathSoulStar(scene, player, lava, opts = {}) {
     const key = "soul_orb";
     if (s.textures.exists(key)) return key;
     const size = 32, cx = size/2, cy = size/2;
-    const g = s.make.graphics({ x: 0, y: 0, add: false });
     const rings = [
       { r: 12, a: 0.10 }, { r: 10, a: 0.16 }, { r: 8, a: 0.22 },
       { r: 6, a: 0.32 },  { r: 4, a: 0.45 },  { r: 3, a: 0.70 },
     ];
+    const g = s.make.graphics({ x: 0, y: 0, add: false });
     for (const { r, a } of rings) { g.fillStyle(0xffffff, a); g.fillCircle(cx, cy, r); }
     g.generateTexture(key, size, size);
     g.destroy();
@@ -70,16 +70,35 @@ export function playLavaDeathSoulStar(scene, player, lava, opts = {}) {
     return key;
   };
 
-  // Estrella (sprite en cruz + rombo)
+  // Estrella (5 puntas)
   const ensureStarTexture = () => {
     const key = "soul_star";
     if (s.textures.exists(key)) return key;
-    const sz = 12, half = sz/2;
+    const sz = 20;
+    const cx = sz / 2;
+    const cy = sz / 2;
+    const outerR = sz * 0.45; // radio exterior
+    const innerR = outerR * 0.45; // radio interior (ajustable para "puntiagudo")
+    const points = [];
+    const startAng = -Math.PI / 2; // punta hacia arriba
+    for (let i = 0; i < 5; i++) {
+      const angOuter = startAng + i * (2 * Math.PI / 5);
+      const angInner = angOuter + (Math.PI / 5);
+      points.push({ x: cx + Math.cos(angOuter) * outerR, y: cy + Math.sin(angOuter) * outerR });
+      points.push({ x: cx + Math.cos(angInner) * innerR, y: cy + Math.sin(angInner) * innerR });
+    }
+
     const g = s.make.graphics({ x: 0, y: 0, add: false });
     g.fillStyle(0xffffff, 1);
-    g.beginPath(); g.moveTo(half, 0); g.lineTo(sz, half); g.lineTo(half, sz); g.lineTo(0, half); g.closePath(); g.fill();
-    g.fillRect(half - 1, 0, 2, sz);
-    g.fillRect(0, half - 1, sz, 2);
+    g.beginPath();
+    g.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) g.lineTo(points[i].x, points[i].y);
+    g.closePath();
+    g.fillPath();
+    // añadir un pequeño brillo/centro (opcional, similar al diseño anterior)
+    g.fillStyle(0xffffff, 0.9);
+    g.fillCircle(cx, cy, sz * 0.06);
+
     g.generateTexture(key, sz, sz);
     g.destroy();
     try { s.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST); } catch {}

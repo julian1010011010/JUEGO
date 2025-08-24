@@ -1,34 +1,32 @@
-// Phaser 3.60+ — Slime gelatinoso procedimental (idle, walk, jump, fall).
-// Sin assets: se pinta en un canvas de textura con extrusión y padding anti-bleed.
-// Características:
-//  - Squash & Stretch por estado (idle wobble suave; walk balanceo lateral; jump estira; fall comprime y "aterriza").
-//  - Offset vertical: sube 2 px en TODOS los estados EXCEPTO idle (como tu gato).
-//  - Escala entera (pixelPerfect) para evitar “pixel fantasma”.
-//  - Extrusión = 2 px; PAD = 2 px.
-//  - Sombra dinámica según squash.
-// Uso: new ProceduralSlimeFactory(scene, {...}).spawn(x, y, { anim: "walk" });
+// Phaser 3.60+ — Calavera procedimental (idle, walk, jump, fall) sin assets.
+// Mantiene el pipeline: anti-bleed (extrusión), offset vertical en NO-idle, pixel-perfect,
+// sombra dinámica y animación de mandíbula (jaw) + glow en ojos.
+
+// Uso típico:
+// const skull = new ProceduralSkullFactory(this, { fw:64, fh:64 }).spawn(200, 300, { anim: "idle" });
+// skull.sprite.play("walk");
 
 import Phaser from "phaser";
 
-// Paleta verde brillante tipo gel
-const SLIME_PAL = {
-  body:    "#17d21f", // verde principal
-  body2:   "#0fb51a", // sombra interna
-  edge:    "#0b7d12", // borde/contorno sutil
-  glow:    "#a6ff9f", // brillo alto
-  core:    "#0a8a10", // núcleo
-  shadow:  "#000000"  // sombra suelo
+const SKULL_PAL = {
+  bone:     "#e8e4da", // hueso base
+  boneDark: "#b7b1a4", // sombra hueso
+  crack:    "#887f73", // fisuras
+  eyeGlow:  "#ff3b30", // brillo de ojos (rojo)
+  eyeCore:  "#6b0a0a", // núcleo del ojo
+  teeth:    "#f5f2ea", // dientes
+  shadow:   "#000000"  // sombra en piso
 };
 
 export default class PlayerCharacter {
   /**
    * @param {Phaser.Scene} scene
    * @param {Object} opts
-   * @param {number} [opts.fw=64]  Ancho frame
-   * @param {number} [opts.fh=64]  Alto  frame
+   * @param {number} [opts.fw=64]  Ancho del frame
+   * @param {number} [opts.fh=64]  Alto del frame
    * @param {{idle?:number,walk?:number,jump?:number,fall?:number}} [opts.frames]
-   * @param {string}  [opts.keyPrefix="slime"]
-   * @param {Partial<typeof SLIME_PAL>} [opts.palette]
+   * @param {string}  [opts.keyPrefix="skull"]
+   * @param {Partial<typeof SKULL_PAL>} [opts.palette]
    * @param {number}  [opts.bodyYOffsetNonIdle=-2] ΔY cuando state !== "idle"
    * @param {boolean} [opts.moveShadowWithBody=true] Sombra acompaña ΔY
    * @param {number}  [opts.extrude=2] Extrusión px
@@ -37,7 +35,7 @@ export default class PlayerCharacter {
   constructor(scene, {
     fw = 64, fh = 64,
     frames,
-    keyPrefix = "slime",
+    keyPrefix = "skull",
     palette = {},
     bodyYOffsetNonIdle = -2,
     moveShadowWithBody = true,
@@ -54,7 +52,7 @@ export default class PlayerCharacter {
     this.EXTRUDE = Math.max(1, extrude);
     this.PAD = Math.max(1, pad);
 
-    this.pal = { ...SLIME_PAL, ...palette };
+    this.pal = { ...SKULL_PAL, ...palette };
 
     this.count = {
       idle: frames?.idle ?? 6,
@@ -100,7 +98,7 @@ export default class PlayerCharacter {
         const frameIdx = Math.min(i, n - 1);
         this.#paintFrame(ctx, state, frameIdx, n, ox, oy);
 
-        // Extrusión 2D
+        // Extrusión 2D (anti-bleed)
         // top
         ctx.drawImage(tex.getSourceImage(), ox, oy, this.fw, 1, ox, oy - EX, this.fw, EX);
         // bottom
@@ -182,7 +180,6 @@ export default class PlayerCharacter {
     }
 
     if (this.scene?.cameras?.main) this.scene.cameras.main.roundPixels = true;
-
     if (this.scene.anims.exists(anim)) s.play(anim);
     return { sprite: s, sheetKey: key, cols: this._cols };
   }
@@ -198,20 +195,21 @@ export default class PlayerCharacter {
     const oyShadow = (this.moveShadowWithBody && state !== "idle") ? oyBody : oy;
 
     this.#shadow(ctx, ox, oyShadow, state, i, n);
-    this.#slimeBody(ctx, ox, oyBody, state, t, i, n);
-    this.#speculars(ctx, ox, oyBody, state, t);
+    this.#skull(ctx, ox, oyBody, state, t, i, n);
+    this.#eyes(ctx, ox, oyBody, state, t, i, n);
+    this.#jaw(ctx, ox, oyBody, state, t, i, n);
+    this.#cracks(ctx, ox, oyBody, state, t);
   }
 
-  // Sombra elíptica dinámica
+  // Sombra en piso
   #shadow(ctx, ox, oy, state, i, n) {
     const w = this.fw, h = this.fh;
     const by = oy + h - 2;
     const cx = ox + (w >> 1);
 
-    // La sombra se estrecha cuando hay stretch vertical y se ensancha cuando hay squash
-    const stateStretch = this.#stretchFactor(state, i, n); // {sx, sy}
-    const base = 0.32;
-    const rx = Math.max(6, Math.floor(w * (base + (1 - stateStretch.sy) * 0.10))); // más ancho si sy < 1 (squash)
+    const { sx, sy } = this.#stretchByState(state, i, n);
+    const base = 0.30;
+    const rx = Math.max(6, Math.floor(w * (base + (1 - sy) * 0.12))); // ensancha cuando hay squash
     const ry = Math.max(2, Math.floor(h * 0.06));
 
     ctx.globalAlpha = 0.22;
@@ -220,174 +218,180 @@ export default class PlayerCharacter {
     ctx.globalAlpha = 1;
   }
 
-  // Cuerpo gelatinoso con squash & stretch + wobble retardado
-  #slimeBody(ctx, ox, oy, state, t, i, n) {
+  // Cráneo principal (ovoide + pómulos)
+  #skull(ctx, ox, oy, state, t, i, n) {
     const w = this.fw, h = this.fh, pal = this.pal;
     const cx = ox + (w >> 1);
-    const baseY = oy + Math.floor(h * 0.78);
+    const baseY = oy + Math.floor(h * 0.74);
 
-    // Stretch/squash por estado
-    const { sx, sy, bobY, tiltX } = this.#slimePose(state, t, i, n);
+    const pose = this.#pose(state, t, i, n);
+    const sx = pose.sx, sy = pose.sy, bobY = pose.bobY ?? 0, tiltX = pose.tiltX ?? 0;
 
     // Dimensiones base
     const rw = Math.floor(w * 0.30);
     const rh = Math.floor(h * 0.26);
 
-    // Contorno / base deformada (aplico scale no afín: simulo con anchos/altos)
-    const bodyW = Math.max(6, Math.floor(rw * 2 * sx));
-    const bodyH = Math.max(6, Math.floor(rh * 2 * sy));
+    const skullW = Math.max(8, Math.floor(rw * 2 * sx));
+    const skullH = Math.max(8, Math.floor(rh * 2 * sy));
     const cy = baseY + bobY;
 
-    // Capa base (gel)
-    ctx.fillStyle = pal.body2;
+    // Sombra interior
+    ctx.fillStyle = pal.boneDark;
     ctx.beginPath();
-    ctx.ellipse(cx + tiltX, cy, bodyW / 2, bodyH / 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + 1 + tiltX, cy + 2, Math.floor(skullW * 0.98)/2, Math.floor(skullH * 0.98)/2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Capa media (color principal)
-    ctx.globalAlpha = 0.92;
-    ctx.fillStyle = pal.body;
+    // Volumen hueso
+    ctx.fillStyle = pal.bone;
     ctx.beginPath();
-    ctx.ellipse(cx, cy - 1, Math.floor(bodyW * 0.94) / 2, Math.floor(bodyH * 0.94) / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // Volúmenes laterales tipo “brazos” gelatinosos (relativos a tilt)
-    const armY = cy - Math.floor(bodyH * 0.15);
-    const armR = Math.max(2, Math.floor(bodyW * 0.16));
-    ctx.fillStyle = pal.body;
-    // izquierdo
-    ctx.beginPath();
-    ctx.ellipse(cx - Math.floor(bodyW * 0.45) + Math.round(tiltX * 0.4), armY, armR, Math.floor(armR * 0.7), 0, 0, Math.PI * 2);
-    ctx.fill();
-    // derecho
-    ctx.beginPath();
-    ctx.ellipse(cx + Math.floor(bodyW * 0.45) + Math.round(tiltX * 0.4), armY + 1, armR, Math.floor(armR * 0.7), 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + tiltX, cy, skullW/2, skullH/2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // “Pico” superior (como en la referencia) — pequeño lóbulo
-    ctx.beginPath();
-    ctx.ellipse(cx - Math.floor(bodyW * 0.18), cy - Math.floor(bodyH * 0.55), Math.floor(bodyW * 0.18), Math.floor(bodyH * 0.18), 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Pómulos (cheekbones)
+    ctx.fillStyle = pal.bone;
+    const cheekR = Math.max(2, Math.floor(skullW * 0.18));
+    ctx.beginPath(); ctx.ellipse(cx - Math.floor(skullW*0.32), cy + Math.floor(skullH*0.02), cheekR, Math.floor(cheekR*0.8), 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + Math.floor(skullW*0.32), cy + Math.floor(skullH*0.02), cheekR, Math.floor(cheekR*0.8), 0, 0, Math.PI * 2); ctx.fill();
 
-    // Borde inferior ligeramente más oscuro
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = pal.edge;
+    // Cavidad nasal (triángulo invertido/ovalo)
+    ctx.fillStyle = pal.boneDark;
     ctx.beginPath();
-    ctx.ellipse(cx + 2, cy + 2, Math.floor(bodyW * 0.92) / 2, Math.floor(bodyH * 0.86) / 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + tiltX, cy, Math.max(2, Math.floor(skullW*0.07)), Math.max(3, Math.floor(skullH*0.18)), 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // Núcleo más denso (sugiere profundidad)
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = pal.core;
-    ctx.beginPath();
-    ctx.ellipse(cx + Math.floor(bodyW * 0.10), cy + Math.floor(bodyH * -0.12), Math.floor(bodyW * 0.45) / 2, Math.floor(bodyH * 0.40) / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
   }
 
-  // Brillos y highlights animados
-  #speculars(ctx, ox, oy, state, t) {
+  // Ojos con glow (brillan + leve latido)
+  #eyes(ctx, ox, oy, state, t, i, n) {
     const w = this.fw, h = this.fh, pal = this.pal;
     const cx = ox + (w >> 1);
-    const cy = oy + Math.floor(h * 0.60);
+    const baseY = oy + Math.floor(h * 0.60);
 
-    // Highlight principal
-    ctx.globalAlpha = 0.28 + 0.06 * Math.sin(t * 1.7);
-    ctx.fillStyle = pal.glow;
+    const pulse = 0.85 + 0.15 * Math.sin(t * 2.0);
+    const dx = 10;
+
+    // Glow
+    ctx.globalAlpha = 0.22 * pulse;
+    ctx.fillStyle = pal.eyeGlow;
+    ctx.beginPath(); ctx.ellipse(cx - dx, baseY, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + dx, baseY, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Núcleo
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = pal.eyeCore;
+    ctx.beginPath(); ctx.ellipse(cx - dx, baseY, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + dx, baseY, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Mandíbula inferior con vibración/charla en walk y squash en aterrizaje
+  #jaw(ctx, ox, oy, state, t, i, n) {
+    const w = this.fw, h = this.fh, pal = this.pal;
+    const cx = ox + (w >> 1);
+    const baseY = oy + Math.floor(h * 0.80);
+
+    let vib = 0;
+    if (state === "walk") vib = Math.round(Math.sin(t * 8) * 1); // chatter rápido
+    if (state === "fall") {
+      const k = i / Math.max(1, n - 1);
+      if (k > 0.8) vib = Math.round((k - 0.8) * 10); // “temblor” al caer
+    }
+
+    // Dientes/mandíbula (rectángulo redondeado simulado con elipse aplastada)
+    ctx.fillStyle = pal.teeth;
     ctx.beginPath();
-    ctx.ellipse(cx - 8, cy - 6, 5, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, baseY + vib, Math.floor(w * 0.20), Math.floor(h * 0.06), 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Burbujas internas sutiles
-    ctx.globalAlpha = 0.18;
-    ctx.beginPath(); ctx.ellipse(cx + 6, cy - 10, 2, 2, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx + 2, cy - 2,  1, 1, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx - 4, cy - 12, 1, 1, 0, 0, Math.PI * 2); ctx.fill();
+    // Separación dentaria (líneas verticales sutiles)
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = pal.boneDark;
+    for (let k = -2; k <= 2; k++) {
+      ctx.fillRect(cx + k * 4, baseY + vib - 2, 1, 4);
+    }
     ctx.globalAlpha = 1;
   }
 
-  // Factores de estiramiento por estado + bob y tilt
-  #slimePose(state, t, i, n) {
-    // Wobble base
-    const wob = Math.sin(t) * 0.08; // ±8%
+  // Fisuras/fallas del hueso
+  #cracks(ctx, ox, oy, state, t) {
+    const w = this.fw, h = this.fh, pal = this.pal;
+    const cx = ox + (w >> 1);
+    const cy = oy + Math.floor(h * 0.68);
+
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = pal.crack;
+
+    // fisura diagonal izquierda
+    ctx.fillRect(cx - 8, cy - 6, 1, 5);
+    ctx.fillRect(cx - 7, cy - 3, 1, 3);
+    // fisura derecha
+    ctx.fillRect(cx + 7, cy - 5, 1, 4);
+    ctx.fillRect(cx + 6, cy - 2, 1, 2);
+
+    ctx.globalAlpha = 1;
+  }
+
+  // Postura (squash & stretch + bob + tilt) por estado
+  #pose(state, t, i, n) {
+    // wobble base
+    const wob = Math.sin(t) * 0.06; // ±6%
     let sx = 1 + wob;
     let sy = 1 - wob;
+    let bobY = 0, tiltX = 0;
 
-    // Ajustes por estado
     if (state === "idle") {
-      // Wobble suave vertical
-      const bobY = Math.round(Math.sin(t) * 1);
-      return { sx, sy, bobY, tiltX: 0 };
+      bobY = Math.round(Math.sin(t) * 1);
+      return { sx, sy, bobY, tiltX };
     }
 
     if (state === "walk") {
-      // Balanceo lateral y bob más rápido
       const phase = Math.sin(t * 2);
-      sx = 1 + 0.12 * phase;   // se ensancha y estrecha
-      sy = 1 - 0.12 * phase;
-      const bobY = Math.round(Math.sin(t * 2) * 1);
-      const tiltX = Math.round(phase * 2); // ligero “inclinadito”
+      sx = 1 + 0.10 * phase;
+      sy = 1 - 0.10 * phase;
+      bobY = Math.round(Math.sin(t * 2) * 1);
+      tiltX = Math.round(phase * 1.5);
       return { sx, sy, bobY, tiltX };
     }
 
     if (state === "jump") {
-      // Estira vertical al despegar
-      const k = i / Math.max(1, n - 1); // 0→1
-      const up = Math.sin(k * Math.PI); // campana
-      sx = 1 - 0.18 * up;
-      sy = 1 + 0.25 * up;
-      const bobY = -2; // sube un toquecito
-      const tiltX = 0;
+      const k = i / Math.max(1, n - 1);
+      const up = Math.sin(k * Math.PI);
+      sx = 1 - 0.14 * up;
+      sy = 1 + 0.18 * up;
+      bobY = -2;
       return { sx, sy, bobY, tiltX };
     }
 
     // fall
     {
-      // Comprime vertical al caer (y se “aplana” en los últimos frames)
       const k = i / Math.max(1, n - 1);
       const down = Math.sin(k * Math.PI);
-      sx = 1 + 0.20 * down;
-      sy = 1 - 0.18 * down;
-      // En el último 20% añade “splash”
+      sx = 1 + 0.16 * down;
+      sy = 1 - 0.14 * down;
       if (k > 0.8) {
-        const f = (k - 0.8) / 0.2; // 0→1
-        sx += 0.10 * f;
-        sy -= 0.10 * f;
+        const f = (k - 0.8) / 0.2;
+        sx += 0.08 * f;   // splash horizontal
+        sy -= 0.08 * f;   // squash extra
       }
-      const bobY = 1; // cae un pelín
-      const tiltX = 0;
+      bobY = 1;
       return { sx, sy, bobY, tiltX };
     }
   }
 
-  // Utilidad solo para sombra (si la quisieras usar fuera)
-  #stretchFactor(state, i, n) {
+  // Simplificado para sombra
+  #stretchByState(state, i, n) {
     const t = (i / Math.max(1, n)) * Math.PI * 2;
     if (state === "idle") {
-      const wob = Math.sin(t) * 0.08;
-      return { sx: 1 + wob, sy: 1 - wob };
+      const wob = Math.sin(t) * 0.06; return { sx: 1 + wob, sy: 1 - wob };
     }
     if (state === "walk") {
-      const phase = Math.sin(t * 2);
-      return { sx: 1 + 0.12 * phase, sy: 1 - 0.12 * phase };
+      const phase = Math.sin(t * 2);  return { sx: 1 + 0.10 * phase, sy: 1 - 0.10 * phase };
     }
     if (state === "jump") {
-      const k = i / Math.max(1, n - 1);
-      const up = Math.sin(k * Math.PI);
-      return { sx: 1 - 0.18 * up, sy: 1 + 0.25 * up };
+      const k = i / Math.max(1, n - 1), up = Math.sin(k * Math.PI);
+      return { sx: 1 - 0.14 * up, sy: 1 + 0.18 * up };
     }
-    // fall
-    const k = i / Math.max(1, n - 1);
-    const down = Math.sin(k * Math.PI);
-    let sx = 1 + 0.20 * down;
-    let sy = 1 - 0.18 * down;
-    if (k > 0.8) { // splash final
-      const f = (k - 0.8) / 0.2;
-      sx += 0.10 * f;
-      sy -= 0.10 * f;
-    }
+    const k = i / Math.max(1, n - 1), down = Math.sin(k * Math.PI);
+    let sx = 1 + 0.16 * down, sy = 1 - 0.14 * down;
+    if (k > 0.8) { const f = (k - 0.8) / 0.2; sx += 0.08 * f; sy -= 0.08 * f; }
     return { sx, sy };
   }
 }

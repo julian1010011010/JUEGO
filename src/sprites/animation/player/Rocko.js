@@ -21,7 +21,7 @@ const CAT_PAL = {
   glow:     "#ffffff"
 };
 
-export default class RockoPlayer {
+export default class PlayerCharacter {
   /**
    * @param {Phaser.Scene} scene
    * @param {Object} opts
