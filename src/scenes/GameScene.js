@@ -100,6 +100,23 @@ export default class GameScene extends Phaser.Scene {
     preloadPlayerSheet(this, {});
   }
 
+  /**
+   * Inicializa la escena principal del juego, configurando todos los elementos visuales,
+   * físicos y lógicos necesarios para el desarrollo de la partida.
+   *
+   * - Verifica la información del usuario y pausa el arranque si no está disponible.
+   * - Configura el fondo animado, partículas ambientales y efectos de sonido.
+   * - Crea y posiciona las plataformas iniciales, incluyendo la base.
+   * - Inicializa el jugador y su controlador, definiendo animaciones y colisiones.
+   * - Configura el HUD, cámara, lava visual y partículas asociadas.
+   * - Gestiona los misiles de lava y su interacción con el jugador.
+   * - Inicializa elementos de UI en el DOM y temporizadores.
+   * - Prepara el sistema de poderes y su aparición sobre plataformas.
+   * - Define la limpieza de recursos al cerrar o reiniciar la escena.
+   *
+   * @function
+   * @memberof GameScene
+   */
   create() {
     // ────────────────────────────────────────────────────────────────────────────
     // 1) Bloque de inicialización general de la escena
@@ -123,9 +140,7 @@ export default class GameScene extends Phaser.Scene {
       this.scale.height,
      18
     );
-    this.bg.createBackground("forest", { mode: "animated", fps: 12 });
-    this.bg.createVolcanoAmbientParticles();
-
+    this.bg.createBackground("night", { mode: "animated", fps: 10 }); 
     // Lady Lava (sprite animado oculto hasta la cinemática)
     const walkKey = createLadyLavaAnimation(this);
     this.ladyLavaSprite = this.add

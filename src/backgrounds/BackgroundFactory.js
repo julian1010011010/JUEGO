@@ -1,44 +1,44 @@
-// Phaser 3.60+ (funciona con 3.80).
-// Fondos generativos pixel art + helpers de parallax y partículas ambientales.
+// Phaser 3.60+ (funciona con 3.80)
+// Fondo pixel-art de noche con: gradiente, luna creciente con halo pulsante,
+// estrellas titilantes y cometa ocasional. Soporta modo "animated" (spritesheet)
+// y "parallax" (tileSprites). Incluye partículas ambientales opcionales.
 
 const PALETTES = {
-  lava:    ['#1a0f1f','#3b0f21','#7a1c22','#d14a1d','#ff8a1c','#ffd166'],
-  neon:    ['#0a0e1a','#141b2f','#1e2c4f','#00e5ff','#ff00e6','#ffe66d'],
-  forest:  ['#0a120f','#13341f','#1c5a2a','#89c15b','#c4e86b','#e7ffd1'],
-  glacier: ['#0a1020','#0f1b38','#123057','#6fb0ff','#bfe3ff','#ffffff'],
-  desert:  ['#2a1a0b','#4a2a12','#8a5a1f','#d8a05a','#ffd17a','#fff1c7'],
-  factory: ['#0e0e12','#1c1c24','#2e2e3a','#8a8f9a','#c3c6cc','#ffe66d'],
-  volcano: ['#0b0a0e','#17131b','#26191d','#7a1c22','#ff6a1c','#ffd166'],
-  // Semi-realista: rocas frías + luces cálidas
-  volcano_sr: ['#0a0a0d','#15131a','#241b20','#8e1f1e','#ff7a1f','#ffd97a']
+  // night: fríos + blancos/amarillos para estrellas/halo
+  night: ['#0a0e1a', '#0f1525', '#1a2138', '#ffffff', '#cdd9ff', '#ffeabf'],
 };
 
 export default class BackgroundFactory {
   /**
    * @param {Phaser.Scene} scene
-   * @param {number} w     ancho logical frame (p.ej. this.scale.width)
-   * @param {number} h     alto logical frame (p.ej. this.scale.height)
-   * @param {number} frames cantidad de frames en la animación (8 por defecto)
+   * @param {number} w     ancho de frame lógico (p.ej. this.scale.width)
+   * @param {number} h     alto  de frame lógico (p.ej. this.scale.height)
+   * @param {number} frames cantidad de frames de animación (recom. 8–12)
    */
-  constructor(scene, w = 480, h = 270, frames = 8) {
+  constructor(scene, w = 480, h = 270, frames = 10) {
     this.scene = scene;
     this.w = w; this.h = h; this.frames = frames;
 
     // Estado vivo
-    this.bgSprite = null;
-    this.parallax = null;
-    this._bgMode = null;
+    this.bgSprite = null;     // sprite de animación por frames
+    this.parallax = null;     // { layers: TileSprite[], update(dx,dy) }
+    this._bgMode  = null;     // 'animated' | 'parallax' | null
 
-    this.volcanoSparks = null;
-    this.volcanoSmoke = null;
+    // Partículas/ambientales
+    this.starsEmitter = null; // destellos sutiles
+    this.cometTimer   = null; // timer para ráfagas de cometas
   }
 
   // =============== API PÚBLICA ===============
 
-  /** Crea fondo (animado por frames o parallax con tileSprite) */
-  createBackground(theme = 'volcano', opts = {}) {
-    const { mode = 'animated', fps = 12, layers = 3, speeds = [0.08, 0.2, 0.45] } = opts;
-    this.destroy(); // limpia si ya hubiera algo
+  /**
+   * Crea el fondo nocturno (animado por frames o parallax).
+   * @param {'night'} theme  por ahora solo night
+   * @param {{ mode?: 'animated'|'parallax', fps?:number, layers?:number, speeds?:number[]}} opts
+   */
+  createBackground(theme = 'night', opts = {}) {
+    const { mode = 'animated', fps = 12, layers = 3, speeds = [0.06, 0.14, 0.3] } = opts;
+    this.destroy(); // limpia lo existente
 
     if (mode === 'animated') {
       this.bgSprite = this.#createAnimated(theme, { fps, keyPrefix: 'bg' })
@@ -51,9 +51,8 @@ export default class BackgroundFactory {
     }
   }
 
-  /** Atajos convenientes */
-  createVolcanoBackground(opts = {})    { this.createBackground('volcano',    { mode: 'animated', fps: 12, ...opts }); }
-  createVolcanoSRBackground(opts = {})  { this.createBackground('volcano_sr', { mode: 'animated', fps: 12, ...opts }); }
+  /** Atajo conveniente */
+  createNightBackground(opts = {}) { this.createBackground('night', { mode: 'animated', fps: 12, ...opts }); }
 
   /** Actualiza parallax (llamar desde update) */
   updateParallax(dx = 1, dy = 0) {
@@ -62,54 +61,67 @@ export default class BackgroundFactory {
     }
   }
 
-  /** Partículas ambientales (chispas/humo) para ambientes volcánicos */
-  createVolcanoAmbientParticles() {
+  /**
+   * Partículas ambientales:
+   *  - Estrellas que parpadean (puntos blancos breves).
+   *  - Cometas esporádicos como ráfagas (usar timer).
+   */
+  createNightAmbientParticles() {
     this.#ensurePixelTexture();
-    const width = this.scene.scale.width;
-    const baseY = this.scene.scale.height * 0.75;
+    const keyPx = 'px';
 
-    // Chispas cálidas que suben
-    this.volcanoSparks = this.scene.add.particles(0, 0, 'px', {
-      x: { min: 0, max: width },
-      y: { min: baseY - 6, max: baseY + 6 },
-      quantity: 6,
-      frequency: 70,
-      lifespan: { min: 500, max: 1100 },
-      speedY: { min: -100, max: -220 },
-      speedX: { min: -30, max: 30 },
-      scale: { start: 2, end: 1 },
-      tint: [0xffe08a, 0xffbc5b, 0xff7a1f, 0xd14a1d],
-      alpha: { start: 1, end: 0 },
-      blendMode: Phaser.BlendModes.ADD
-    }).setDepth(2);
-
-    // Humo sutil
-    this.volcanoSmoke = this.scene.add.particles(0, 0, 'px', {
-      x: { min: 0, max: width },
-      y: { min: baseY - 18, max: baseY - 6 },
-      quantity: 3,
+    // Destellos sutiles sobre toda la pantalla
+    this.starsEmitter = this.scene.add.particles(0, 0, keyPx, {
+      x: { min: 0, max: this.scene.scale.width },
+      y: { min: 0, max: this.scene.scale.height * 0.75 },
+      quantity: 2,
       frequency: 120,
-      lifespan: { min: 900, max: 1600 },
-      speedY: { min: -60, max: -120 },
-      speedX: { min: -20, max: 20 },
-      gravityY: 0,
-      scale: { start: 4, end: 6 },
-      tint: [0x2b2b2b, 0x3a3a3a, 0x444444],
-      alpha: { start: 0.25, end: 0 },
-      blendMode: Phaser.BlendModes.NORMAL
-    }).setDepth(1);
+      lifespan: { min: 200, max: 450 },
+      scale: { start: 1.5, end: 0.5 },
+      alpha: { start: 0.8, end: 0 },
+      tint: [0xffffff, 0xcdd9ff],
+      speedX: { min: -5, max: 5 },
+      speedY: { min: -5, max: 5 },
+      blendMode: Phaser.BlendModes.ADD
+    }).setDepth(-18);
+
+    // Ráfagas de cometas cada ~3–6 s, cruzan diagonalmente
+    const spawnComet = () => {
+      const startY = Phaser.Math.Between(20, Math.floor(this.scene.scale.height * 0.5));
+      const startX = -40;
+      const group = this.scene.add.particles(0, 0, keyPx, {
+        x: startX,
+        y: startY,
+        lifespan: 500,
+        speedX: { min: 350, max: 420 },
+        speedY: { min: -120, max: -80 },
+        gravityY: 0,
+        scale: { start: 2.5, end: 1 },
+        alpha: { start: 1, end: 0 },
+        quantity: 1,
+        frequency: 28,
+        tint: [0xffffff, 0xffeabf],
+        blendMode: Phaser.BlendModes.ADD
+      }).setDepth(-18);
+
+      // cola extra (trail) como ráfaga rápida
+      this.scene.time.delayedCall(280, () => group.destroy(), null, this.scene);
+    };
+
+    this.cometTimer = this.scene.time.addEvent({
+      delay: Phaser.Math.Between(3000, 6000),
+      loop: true,
+      callback: () => {
+        spawnComet();
+        // siguiente delay aleatorio
+        this.cometTimer.delay = Phaser.Math.Between(3000, 6000);
+      }
+    });
   }
 
-  destroyVolcanoAmbientParticles() {
-    this.volcanoSparks?.destroy?.();
-    this.volcanoSmoke?.destroy?.();
-    this.volcanoSparks = null;
-    this.volcanoSmoke = null;
-  }
-
-  /** Limpia fondo (animado o parallax) y partículas */
+  /** Limpia fondo y partículas */
   destroy() {
-    // Sprite animado
+    // Animación por frames
     if (this.bgSprite?.anims) this.bgSprite.anims.stop();
     this.bgSprite?.destroy?.();
     this.bgSprite = null;
@@ -118,7 +130,10 @@ export default class BackgroundFactory {
     if (this.parallax?.layers) this.parallax.layers.forEach(l => l.destroy?.());
     this.parallax = null;
 
-    this.destroyVolcanoAmbientParticles();
+    // Partículas / timers
+    this.starsEmitter?.destroy?.(); this.starsEmitter = null;
+    this.cometTimer?.remove?.(); this.cometTimer = null;
+
     this._bgMode = null;
   }
 
@@ -132,13 +147,15 @@ export default class BackgroundFactory {
     }
     const s = this.scene.add.sprite(this.scene.scale.width/2, this.scene.scale.height/2, key, '0')
       .setOrigin(0.5).setScrollFactor(0);
+
     s.play(`${key}-anim`);
+    // Escala para cubrir la vista
     s.displayWidth  = this.scene.scale.width;
     s.displayHeight = this.scene.scale.height;
     return s;
   }
 
-  #createParallax(theme, { layers = 3, speeds = [0.08, 0.2, 0.45], keyPrefix = 'tile' } = {}) {
+  #createParallax(theme, { layers = 3, speeds = [0.06, 0.14, 0.3], keyPrefix = 'tile' } = {}) {
     const baseKey = `${keyPrefix}-${theme}-${this.w}x${this.h}`;
     const ts = [];
     for (let i = 0; i < layers; i++) {
@@ -148,7 +165,7 @@ export default class BackgroundFactory {
       }
       const t = this.scene.add.tileSprite(0, 0, this.scene.scale.width, this.scene.scale.height, key)
         .setOrigin(0, 0).setScrollFactor(0);
-      t.speed = speeds[Math.min(i, speeds.length - 1)] ?? (0.1 + i * 0.1);
+      t.speed = speeds[Math.min(i, speeds.length - 1)] ?? (0.08 + i * 0.08);
       ts.push(t);
     }
     return {
@@ -156,7 +173,7 @@ export default class BackgroundFactory {
       update: (dx = 1, dy = 0) => {
         ts.forEach((t) => {
           t.tilePositionX += dx * t.speed;
-          t.tilePositionY += dy * t.speed * 0.3;
+          t.tilePositionY += dy * t.speed * 0.25;
         });
       }
     };
@@ -166,7 +183,9 @@ export default class BackgroundFactory {
     const { frames, w, h } = this;
     const canvasTex = this.scene.textures.createCanvas(key, w * frames, h);
     const ctx = canvasTex.getContext();
-    for (let f = 0; f < frames; f++) this.#paintBackgroundFrame(ctx, theme, w, h, f, frames, f * w);
+    for (let f = 0; f < frames; f++) {
+      this.#paintBackgroundFrame(ctx, theme, w, h, f, frames, f * w);
+    }
     canvasTex.refresh();
     const tex = this.scene.textures.get(key);
     for (let f = 0; f < frames; f++) tex.add(String(f), 0, f * w, 0, w, h);
@@ -180,312 +199,113 @@ export default class BackgroundFactory {
   }
 
   #buildTileLayer(theme, key, layerIndex) {
+    // Tile básico 256x256 con cielo y estrellas en distintas densidades
     const w = 256, h = 256;
     const tx = this.scene.textures.createCanvas(key, w, h);
     const ctx = tx.getContext();
-    const pal = PALETTES[theme] ?? PALETTES.neon;
-    this.#paintTile(ctx, pal, w, h, layerIndex);
+    const pal = PALETTES[theme] ?? PALETTES.night;
+
+    // Gradiente vertical
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, pal[0]); g.addColorStop(1, pal[1]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+
+    // Estrellas “estáticas” por capa (más chicas en fondo)
+    const density = [90, 60, 35][Math.min(layerIndex, 2)];
+    ctx.globalAlpha = 0.6 - layerIndex * 0.15;
+    ctx.fillStyle = pal[3];
+    for (let i = 0; i < density; i++) {
+      const x = Math.floor(Math.random() * w);
+      const y = Math.floor(Math.random() * h * 0.8);
+      const sz = (layerIndex === 0) ? 1 : (layerIndex === 1 ? 2 : 3);
+      ctx.fillRect(x, y, sz, sz);
+    }
+    ctx.globalAlpha = 1;
     tx.refresh();
   }
 
-  // =============== PINTURA DE FRAMES ===============
+  // =============== PINTURA DE FRAMES (modo animated) ===============
 
   #paintBackgroundFrame(ctx, theme, w, h, f, frames, ox) {
-    const pal = PALETTES[theme] ?? PALETTES.neon;
+    const pal = PALETTES[theme] ?? PALETTES.night;
 
-    // fondo base
+    // Fondo base (gradiente)
     const g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, pal[0]); g.addColorStop(1, pal[1]);
     ctx.fillStyle = g; ctx.fillRect(ox, 0, w, h);
 
     switch (theme) {
-      case 'lava':       this.#paintLava(ctx, pal, f, frames, ox, w, h); break;
-      case 'neon':       this.#paintNeonCity(ctx, pal, f, frames, ox, w, h); break;
-      case 'forest':     this.#paintForest(ctx, pal, f, frames, ox, w, h); break;
-      case 'glacier':    this.#paintGlacier(ctx, pal, f, frames, ox, w, h); break;
-      case 'desert':     this.#paintDesert(ctx, pal, f, frames, ox, w, h); break;
-      case 'factory':    this.#paintFactory(ctx, pal, f, frames, ox, w, h); break;
-      case 'volcano':    this.#paintVolcano(ctx, pal, f, frames, ox, w, h); break;
-      case 'volcano_sr': this.#paintVolcanoSR(ctx, pal, f, frames, ox, w, h); break;
+      case 'night':
+        this.#paintNight(ctx, pal, f, frames, ox, w, h);
+        break;
+      default:
+        this.#paintNight(ctx, pal, f, frames, ox, w, h); // fallback
+        break;
     }
 
-    // scanlines sutiles
+    // Scanlines sutiles para look retro
     ctx.globalAlpha = 0.06; ctx.fillStyle = '#000';
     for (let y = 0; y < h; y += 3) ctx.fillRect(ox, y, w, 1);
     ctx.globalAlpha = 1;
   }
 
-  #paintTile(ctx, pal, w, h, layerIndex) {
-    const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, pal[0]); g.addColorStop(1, pal[1]);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  /** Tema Night (cielo estrellado con luna, halo pulsante, titileo y cometa) */
+  #paintNight(ctx, pal, f, frames, ox, w, h) {
+    const t = (f / frames) * Math.PI * 2;
 
-    ctx.globalAlpha = 0.8 - layerIndex * 0.2;
-    ctx.fillStyle = pal[3] ?? '#888';
-    const rnd = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
-    for (let i = 0; i < 120; i++) {
-      const x = rnd(0, w), y = rnd(0, h);
-      if (layerIndex === 0) ctx.fillRect(x, y, 1, 1);
-      if (layerIndex === 1) ctx.fillRect(x, y, 2, 2);
-      if (layerIndex >= 2) ctx.fillRect(x, y, 3, 2);
+    // 🌙 Luna creciente con halo pulsante (top-right)
+    const moonX = ox + Math.floor(w * 0.85);
+    const moonY = Math.floor(h * 0.22);
+    const haloR = 26 + Math.sin(t * 1.2) * 2;
+
+    // halo suave
+    ctx.globalAlpha = 0.12 + 0.10 * (0.5 + 0.5 * Math.sin(t * 2));
+    ctx.fillStyle = pal[5]; // tono cálido
+    ctx.beginPath(); ctx.arc(moonX, moonY, haloR, 0, Math.PI * 2); ctx.fill();
+
+    // disco y recorte para "creciente"
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = pal[4]; // luna clara
+    ctx.beginPath(); ctx.arc(moonX, moonY, 18, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = pal[1]; // recorte “sombra”
+    ctx.beginPath(); ctx.arc(moonX + 6, moonY, 18, 0, Math.PI * 2); ctx.fill();
+
+    // ✨ Estrellas titilantes (pseudo-determinístico por frame)
+    const starCount = 42;
+    for (let i = 0; i < starCount; i++) {
+      // Distribución reproducible: usa i y f para variar
+      const x = ox + ((i * 61 + f * 17) % (w - 3)) + 2;
+      const y = (i * 37 + f * 11) % Math.floor(h * 0.78);
+      // titileo por seno con fase distinta
+      const blink = 0.55 + 0.45 * Math.sin(t * 3 + i * 0.7);
+      ctx.globalAlpha = blink;
+      ctx.fillStyle = (i % 7 === 0) ? pal[4] : pal[3]; // algunas azuladas
+      const sz = (i % 9 === 0) ? 2 : 1;
+      ctx.fillRect(x, y, sz, sz);
     }
     ctx.globalAlpha = 1;
-  }
 
-  // ====== TEMAS ======
-
-  #paintLava(ctx, pal, f, frames, ox, w, h) {
-    const t = (f / frames) * Math.PI * 2;
-    for (let y = h * 0.65; y < h; y += 8) {
-      const amp = 6 + 3 * Math.sin(t + y * 0.08);
-      this.#wavy(ctx, ox, y, w, 6, amp, pal[3]);
-    }
-    ctx.globalAlpha = 0.5; ctx.fillStyle = pal[4];
-    ctx.fillRect(ox, h * 0.8, w, h * 0.2); ctx.globalAlpha = 1;
-  }
-
-  #paintNeonCity(ctx, pal, f, frames, ox, w, h) {
-    const baseY = h * 0.72; ctx.fillStyle = pal[2];
-    for (let i = 0; i < 12; i++) {
-      const bw = 20 + (i % 3) * 12, x = ox + 10 + i * (w / 12), bh = 40 + (i % 5) * 18;
-      ctx.fillRect(x, baseY - bh, bw, bh);
-      for (let vy = baseY - bh + 6; vy < baseY - 4; vy += 8) {
-        for (let vx = x + 3; vx < x + bw - 3; vx += 6) {
-          const blink = ((vx + vy + f * 7) % 19) < 8;
-          ctx.fillStyle = blink ? pal[4] : pal[3];
-          ctx.fillRect(vx, vy, 2, 2);
-        }
-      }
-    }
-    ctx.globalAlpha = 0.15; ctx.fillStyle = pal[4];
-    ctx.fillRect(ox, baseY - 4, w, 8); ctx.globalAlpha = 1;
-  }
-
-  #paintForest(ctx, pal, f, frames, ox, w, h) {
-    const baseY = h * 0.75;
-    for (let layer = 0; layer < 3; layer++) {
-      const shade = pal[2 + layer]; ctx.fillStyle = shade;
-      const offset = Math.sin((f / frames) * Math.PI * 2 + layer) * 4;
-      for (let x = 0; x < w; x += 12) {
-        const th = 10 + (x % 24) + layer * 6;
-        ctx.fillRect(ox + x + offset, baseY - th, 8, th);
-      }
-    }
-  }
-
-  #paintGlacier(ctx, pal, f, frames, ox, w, h) {
-    const baseY = h * 0.8;
-    for (let i = 0; i < 8; i++) {
-      const iw = 26, ih = 12 + (i % 3) * 6, x = ox + 20 + i * (w / 8);
-      const bob = Math.sin(((f + i) / frames) * Math.PI * 2) * 2;
-      ctx.fillStyle = pal[4]; ctx.fillRect(x, baseY - ih + bob, iw, ih);
-      ctx.fillStyle = pal[5]; ctx.fillRect(x + 2, baseY - ih + 2 + bob, iw - 4, ih - 4);
-    }
-    ctx.globalAlpha = 0.1; ctx.fillStyle = pal[3];
-    ctx.fillRect(ox, 0, w, h * 0.5); ctx.globalAlpha = 1;
-  }
-
-  #paintDesert(ctx, pal, f, frames, ox, w, h) {
-    const t = (f / frames) * Math.PI * 2;
-    for (let y = h * 0.65; y < h; y += 10) {
-      const amp = 8 + 4 * Math.sin(t + y * 0.05);
-      this.#wavy(ctx, ox, y, w, 10, amp, pal[3 + (y / 10) % 2 | 0]);
-    }
-    ctx.globalAlpha = 0.25; ctx.fillStyle = pal[5];
-    ctx.beginPath(); ctx.arc(ox + w * 0.8, h * 0.25, 26, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-
-  #paintFactory(ctx, pal, f, frames, ox, w, h) {
-    const t = (f / frames) * Math.PI * 2; ctx.fillStyle = pal[2];
-    for (let x = 0; x < w; x += 30) ctx.fillRect(ox + x, h * 0.55, 8, h * 0.5);
-    for (let i = 0; i < 5; i++) {
-      const cx = ox + 30 + i * (w / 5), cy = h * 0.45 + (i % 2) * 10, r = 12 + (i % 3) * 6;
-      this.#gear(ctx, cx, cy, r, 8, pal[4], t + i * 0.6);
-    }
-  }
-
-  // --- Volcano clásico ---
-  #paintVolcano(ctx, pal, f, frames, ox, w, h) {
-    const t = (f / frames) * Math.PI * 2, baseY = Math.floor(h * 0.74);
-
-    // roca con ladrillos
-    ctx.fillStyle = pal[2];
-    for (let y = 20; y < baseY - 16; y += 12) {
-      const shift = Math.floor(4 * Math.sin(t + y * 0.15));
-      for (let x = 0; x < w; x += 16) ctx.fillRect(ox + x + shift, y, 14, 10);
-    }
-
-    // grietas glow
-    for (let i = 0; i < 12; i++) {
-      const cx = ox + 10 + i * (w / 12), phase = t + i * 0.7;
-      const glow = 0.35 + 0.25 * Math.sin(phase);
-      ctx.globalAlpha = glow; ctx.fillStyle = pal[5];
-      let yy = 28 + (i % 3) * 6;
-      for (let k = 0; k < 10; k++) {
-        const len = 6 + (k % 3) * 3, dx = ((k % 2) ? 2 : -2);
-        ctx.fillRect(cx + dx, yy, 2, len); yy += len + 2;
+    // 🌠 Cometa ocasional: aparece en ~2 de N frames del loop
+    // Aquí lo hacemos aparecer cuando (f % frames) coincide con 1 ó frames/2
+    if (f === 1 || f === Math.floor(frames / 2)) {
+      const progress = f === 1 ? 0.3 : 0.6; // arranca en distinto tramo
+      const baseX = ox + Math.floor(w * progress);
+      const baseY = Math.floor(h * (0.28 + 0.04 * Math.sin(t)));
+      // cabeza del cometa
+      ctx.fillStyle = pal[5];
+      ctx.fillRect(baseX, baseY, 3, 3);
+      // cola (trail) diagonal hacia atrás
+      for (let i = 1; i <= 10; i++) {
+        ctx.globalAlpha = 0.22 - i * 0.018;
+        ctx.fillStyle = (i % 2 === 0) ? pal[5] : pal[3];
+        ctx.fillRect(baseX - i * 5, baseY - i * 2, 2, 2);
       }
       ctx.globalAlpha = 1;
     }
-
-    // goteos
-    for (let i = 0; i < 10; i++) {
-      const x = ox + ((i * 97) % (w - 8)) + 4, top = 14 + (i % 3) * 6;
-      const drop = (1 - Math.cos(t + i)) * 16;
-      ctx.fillStyle = pal[4]; ctx.fillRect(x, top + drop, 2, 6);
-      ctx.fillStyle = pal[3]; ctx.fillRect(x, top + drop + 6, 2, 2);
-    }
-
-    // lava
-    for (let y = baseY; y < h; y += 8) {
-      const amp = 6 + 3 * Math.sin(t + y * 0.08);
-      this.#wavy(ctx, ox, y, w, 6, amp, pal[3]);
-    }
-    ctx.globalAlpha = 0.6; this.#zigzag(ctx, ox, baseY - 2, w, 6, 3 + 2 * Math.sin(t), pal[4]); ctx.globalAlpha = 1;
-    ctx.globalAlpha = 0.35; ctx.fillStyle = pal[4]; ctx.fillRect(ox, baseY, w, h - baseY); ctx.globalAlpha = 1;
-
-    // chispas
-    for (let i = 0; i < 38; i++) {
-      const px = ox + ((i * 53) % (w - 4)) + 2;
-      const rise = 24 + 18 * Math.sin(t + i * 0.5), py = baseY - (i % 24) - rise;
-      ctx.fillStyle = (i % 3 === 0) ? pal[5] : pal[4]; ctx.fillRect(px, py, 2, 2);
-    }
-
-    // humo
-    for (let i = 0; i < 6; i++) {
-      const cx = ox + 30 + i * (w / 6), base = baseY - 8 - (i % 2) * 6;
-      const yy = base - 18 * (1 - Math.cos(t + i * 0.9));
-      this.#puff(ctx, cx, yy, 6, '#2b2b2b', 0.18);
-      this.#puff(ctx, cx + 6, yy - 8, 4, '#444', 0.14);
-    }
   }
 
-  // --- Volcano semi-realista con olas + heat haze ---
-  #paintVolcanoSR(ctx, pal, f, frames, ox, w, h) {
-    const t = (f / frames) * Math.PI * 2;
-    const baseY = Math.floor(h * 0.76);
-
-    // roca + micro-dither
-    ctx.fillStyle = pal[2];
-    for (let y = 18; y < baseY - 14; y += 10) {
-      const shift = Math.floor(5 * Math.sin(t * 0.9 + y * 0.12));
-      for (let x = 0; x < w; x += 14) ctx.fillRect(ox + x + shift, y, 12, 8);
-    }
-    ctx.globalAlpha = 0.15; ctx.fillStyle = '#000';
-    for (let y = 22; y < baseY - 16; y += 4)
-      for (let x = ox; x < ox + w; x += 4)
-        if (((x + y) >> 2) & 1) ctx.fillRect(x, y, 1, 1);
-    ctx.globalAlpha = 1;
-
-    // grietas pulsantes
-    for (let i = 0; i < 14; i++) {
-      const cx = ox + 8 + i * (w / 14);
-      const pulse = 0.4 + 0.3 * Math.sin(t * 1.1 + i * 0.65);
-      ctx.globalAlpha = 0.6 * pulse; ctx.fillStyle = pal[4];
-      let yy = 28 + (i % 4) * 5;
-      for (let k = 0; k < 11; k++) { const len = 6 + (k % 3) * 3, dx = ((k % 2) ? 2 : -2); ctx.fillRect(cx + dx, yy, 2, len); yy += len + 2; }
-      ctx.globalAlpha = 0.35 * pulse; ctx.fillStyle = pal[5];
-      yy = 30 + (i % 4) * 5;
-      for (let k = 0; k < 11; k++) { const len = 4 + (k % 3) * 2, dx = ((k % 2) ? 1 : -1); ctx.fillRect(cx + dx, yy, 1, len); yy += len + 2; }
-      ctx.globalAlpha = 1;
-    }
-
-    // goteos
-    for (let i = 0; i < 12; i++) {
-      const x = ox + ((i * 83) % (w - 10)) + 5, top = 14 + (i % 3) * 6;
-      const drop = (1 - Math.cos(t * 1.2 + i)) * 18;
-      ctx.fillStyle = pal[4]; ctx.fillRect(x, top + drop, 2, 7);
-      ctx.fillStyle = pal[3]; ctx.fillRect(x, top + drop + 7, 2, 2);
-    }
-
-    // olas de lava pesadas
-    for (let y = baseY; y < h; y += 7) {
-      const amp = 7 + 4 * Math.sin(t * 0.9 + y * 0.07);
-      this.#wavy(ctx, ox, y, w, 6, amp, pal[3]);
-    }
-    ctx.globalAlpha = 0.7; this.#zigzag(ctx, ox, baseY - 2, w, 6, 3 + 2 * Math.sin(t), pal[4]); ctx.globalAlpha = 1;
-    ctx.globalAlpha = 0.38; ctx.fillStyle = pal[4]; ctx.fillRect(ox, baseY, w, h - baseY); ctx.globalAlpha = 1;
-
-    // heat haze (bandas verticales con micro offset)
-    const hazeTop = baseY - 22, hazeBottom = baseY - 2;
-    for (let x = 0; x < w; x += 4) {
-      const phase = Math.sin(t * 1.3 + x * 0.12);
-      const colAlpha = 0.06 + 0.06 * (0.5 + 0.5 * phase);
-      const yShift = Math.floor(2 * phase);
-      ctx.globalAlpha = colAlpha; ctx.fillStyle = '#ffefe0';
-      ctx.fillRect(ox + x, hazeTop + yShift, 2, hazeBottom - hazeTop);
-    }
-    ctx.globalAlpha = 1;
-
-    // shimmer horizontal
-    for (let i = 0; i < 6; i++) {
-      const yy = hazeTop - 6 * i + 4 * Math.sin(t * 1.2 + i * 0.6);
-      ctx.globalAlpha = 0.08 + 0.02 * (i % 2);
-      this.#shimmerLine(ctx, ox, yy, w);
-    }
-    ctx.globalAlpha = 1;
-
-    // chispas + humo sutil
-    for (let i = 0; i < 46; i++) {
-      const px = ox + ((i * 47) % (w - 4)) + 2;
-      const rise = 28 + 16 * Math.sin(t * 1.1 + i * 0.45);
-      const py = baseY - (i % 26) - rise;
-      ctx.fillStyle = (i % 4 === 0) ? pal[5] : pal[4];
-      ctx.fillRect(px, py, 2, 2);
-    }
-    for (let i = 0; i < 7; i++) {
-      const cx = ox + 26 + i * (w / 7);
-      const base = baseY - 10 - (i % 2) * 6;
-      const yy = base - 16 * (1 - Math.cos(t * 1.05 + i * 0.9));
-      this.#puff(ctx, cx, yy, 6, '#2b2b2b', 0.16);
-      this.#puff(ctx, cx + 6, yy - 7, 4, '#474747', 0.12);
-    }
-  }
-
-  // =============== UTILIDADES DE TRAZO ===============
-
-  #zigzag(ctx, ox, y, w, step, amp, color) {
-    ctx.fillStyle = color;
-    for (let x = 0; x < w; x += step) {
-      const off = Math.sin((x / 16)) * amp;
-      ctx.fillRect(ox + x, y + off, step, step);
-    }
-  }
-
-  #wavy(ctx, ox, y, w, step, amp, color) {
-    ctx.fillStyle = color;
-    for (let x = 0; x < w; x += step) {
-      const off = Math.sin((x / 24)) * amp;
-      ctx.fillRect(ox + x, y + off, step, step);
-    }
-  }
-
-  #shimmerLine(ctx, ox, y, w) {
-    for (let x = 0; x < w; x += 6) {
-      ctx.fillRect(ox + x, y + Math.sin(x * 0.25) * 1.5, 4, 1);
-    }
-  }
-
-  #gear(ctx, cx, cy, r, teeth, color, rot) {
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
-    ctx.fillStyle = color;
-    for (let i = 0; i < teeth; i++) {
-      const a = (i / teeth) * Math.PI * 2, x = Math.cos(a) * (r + 4), y = Math.sin(a) * (r + 4);
-      ctx.fillRect(x - 2, y - 2, 4, 4);
-    }
-    ctx.fillStyle = '#000'; ctx.fillRect(-2, -2, 4, 4); ctx.restore();
-  }
-
-  #puff(ctx, x, y, r, color, alpha = 0.2) {
-    ctx.globalAlpha = alpha; ctx.fillStyle = color;
-    for (let i = -r; i <= r; i += 2)
-      for (let j = -r; j <= r; j += 2)
-        if (i * i + j * j <= r * r) ctx.fillRect(x + i, y + j, 2, 2);
-    ctx.globalAlpha = 1;
-  }
-
-  // =============== INTERNOS: util de partículas ===============
+  // =============== UTILIDADES ===============
 
   #ensurePixelTexture() {
     const key = 'px';
