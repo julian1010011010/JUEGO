@@ -21,7 +21,7 @@ import {
   spawnPlayerFromSheet,
 } from "../sprites/animation/player/PlayerAnimation";
 
-import ProceduralPlayerFactory from "../sprites/animation/player/ProceduralPlayerFactory";
+import ProceduralPlayerFactory from "../sprites/animation/player/Rocko.js";
  
 
 
