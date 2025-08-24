@@ -86,8 +86,8 @@ const gameConfig = {
 
 // Jugador tamaño
 player: {
-  width: 50,
-  height: 50,
+  width: 75,
+  height: 75,
   body: { w: 24, h: 28 }
 }
 };
