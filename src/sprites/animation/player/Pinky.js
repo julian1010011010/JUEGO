@@ -14,7 +14,7 @@ const PINKY_PAL = {
   shadow:   "#000000"
 };
 
-export default class ProceduralPinkyFactory {
+export default class PlayerCharacter {
   /**
    * @param {Phaser.Scene} scene
    * @param {Object} opts
