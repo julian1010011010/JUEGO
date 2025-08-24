@@ -1,5 +1,12 @@
 // src/sprites/procedural/ProceduralPlayerFactory.js
 // Phaser 3.60+ — Gato “persa” pixel-art procedimental (idle, walk, jump, fall). Sin assets.
+// Ajustes:
+//  - Subir el personaje 2 px en TODOS los estados EXCEPTO idle (bodyYOffsetNonIdle = -2).
+//  - Escala entera por defecto para evitar "pixel fantasma" al caminar (pixelPerfect = true).
+//  - Extrusión de bordes = 2 px para mayor seguridad (EXTRUDE = 2).
+//  - Opción para que la sombra acompañe o no el desplazamiento vertical (moveShadowWithBody).
+
+import Phaser from "phaser"; // Si tu bundler lo inyecta global, puedes remover esta línea.
 
 const CAT_PAL = {
   furMid:   "#8f8683", // pelaje medio
@@ -17,25 +24,38 @@ const CAT_PAL = {
 export default class ProceduralPlayerFactory {
   /**
    * @param {Phaser.Scene} scene
-   * @param {{
-   *   fw?:number, fh?:number,
-   *   frames?:{idle?:number,walk?:number,jump?:number,fall?:number},
-   *   keyPrefix?:string,
-   *   palette?:Partial<typeof CAT_PAL>,
-   *   angryEyes?:boolean   // ojos más cerrados (look “grumpy”)
-   * }} opts
+   * @param {Object} opts
+   * @param {number} [opts.fw=64]  Ancho del frame (px)
+   * @param {number} [opts.fh=64]  Alto del frame (px)
+   * @param {{idle?:number,walk?:number,jump?:number,fall?:number}} [opts.frames]
+   * @param {string}  [opts.keyPrefix="cat"] Prefijo para la clave de textura
+   * @param {Partial<typeof CAT_PAL>} [opts.palette]  Paleta opcional
+   * @param {boolean} [opts.angryEyes=true]  Ojos más cerrados (look “grumpy”)
+   * @param {number}  [opts.bodyYOffsetNonIdle=-2]  ΔY aplicado SOLO si state !== "idle"
+   * @param {boolean} [opts.moveShadowWithBody=true] Si true, la sombra acompaña el ΔY
+   * @param {number}  [opts.extrude=2]  Extrusión (px) alrededor de cada frame en el atlas
+   * @param {number}  [opts.pad=2]      Padding (px) entre celdas del atlas
    */
   constructor(scene, {
     fw = 64, fh = 64,
     frames,
     keyPrefix = "cat",
     palette = {},
-    angryEyes = true
+    angryEyes = true,
+    bodyYOffsetNonIdle = -2,
+    moveShadowWithBody = true,
+    extrude = 2,
+    pad = 2
   } = {}) {
     this.scene = scene;
     this.fw = fw;
     this.fh = fh;
     this.angryEyes = angryEyes;
+    this.bodyYOffsetNonIdle = bodyYOffsetNonIdle;
+    this.moveShadowWithBody = moveShadowWithBody;
+
+    this.EXTRUDE = Math.max(1, extrude); // más seguro = 2
+    this.PAD = Math.max(1, pad);         // separación entre celdas
 
     this.pal = { ...CAT_PAL, ...palette };
 
@@ -49,77 +69,78 @@ export default class ProceduralPlayerFactory {
     this.rows = ["idle", "walk", "jump", "fall"];
     this._cols = Math.max(this.count.idle, this.count.walk, this.count.jump, this.count.fall);
 
-    this.key = `${keyPrefix}-${fw}x${fh}-i${this.count.idle}-w${this.count.walk}-j${this.count.jump}-f${this.count.fall}-${this.angryEyes?'angry':'neutral'}`;
+    this.key =
+      `${keyPrefix}-${fw}x${fh}-i${this.count.idle}-w${this.count.walk}-j${this.count.jump}-f${this.count.fall}` +
+      `-${this.angryEyes ? 'angry' : 'neutral'}-yo${this.bodyYOffsetNonIdle}` +
+      `-${this.moveShadowWithBody ? 'smove' : 'sfixed'}-ex${this.EXTRUDE}-pd${this.PAD}`;
   }
 
   // ───────────────────────── Sheet & anims ─────────────────────────
-// Dentro de ProceduralPlayerFactory
-buildSheet() {
-  if (this.scene.textures.exists(this.key)) return this.key;
+  buildSheet() {
+    if (this.scene.textures.exists(this.key)) return this.key;
 
-  const cols = this._cols, rows = this.rows.length;
+    const cols = this._cols, rows = this.rows.length;
+    const PAD = this.PAD;
+    const EXTRUDE = this.EXTRUDE;
 
-  // === parámetros anti-bleed ===
-  const PAD = 2;           // espacio en blanco entre frames
-  const EXTRUDE = 1;       // duplicar 1px de borde alrededor del frame (opcional pero muy útil)
+    // tamaño total del canvas (con gutters)
+    const cellW = this.fw + PAD + EXTRUDE * 2;
+    const cellH = this.fh + PAD + EXTRUDE * 2;
+    const sheetW = cols * cellW + PAD; // PAD extra al final
+    const sheetH = rows * cellH + PAD;
 
-  // tamaño total del canvas (con gutters)
-  const cellW = this.fw + PAD + EXTRUDE * 2;
-  const cellH = this.fh + PAD + EXTRUDE * 2;
-  const sheetW = cols * cellW + PAD;     // PAD extra al final
-  const sheetH = rows * cellH + PAD;
+    const tex = this.scene.textures.createCanvas(this.key, sheetW, sheetH);
+    const ctx = tex.getContext();
+    ctx.imageSmoothingEnabled = false;
 
-  const tex = this.scene.textures.createCanvas(this.key, sheetW, sheetH);
-  const ctx = tex.getContext();
-  ctx.imageSmoothingEnabled = false;
+    let rowIndex = 0;
+    for (const state of this.rows) {
+      const n = this.count[state];
+      for (let i = 0; i < cols; i++) {
+        // origen de la “celda”
+        const cellX = PAD + i * cellW;
+        const cellY = PAD + rowIndex * cellH;
 
-  let rowIndex = 0;
-  for (const state of this.rows) {
-    const n = this.count[state];
-    for (let i = 0; i < cols; i++) {
-      // origen del “celda”
-      const cellX = PAD + i * cellW;
-      const cellY = PAD + rowIndex * cellH;
+        // origen del frame real (dejando EXTRUDE alrededor)
+        const ox = cellX + EXTRUDE;
+        const oy = cellY + EXTRUDE;
 
-      // origen del frame pintado (dejando EXTRUDE alrededor)
-      const ox = cellX + EXTRUDE;
-      const oy = cellY + EXTRUDE;
+        // pinta frame real (si i >= n, repite el último)
+        const frameIdx = Math.min(i, n - 1);
+        this.#paintFrame(ctx, state, frameIdx, n, ox, oy);
 
-      // pinta frame real (si i >= n, repite el último)
-      const frameIdx = Math.min(i, n - 1);
-      this.#paintFrame(ctx, state, frameIdx, n, ox, oy);
-
-      // === extrusión de bordes (duplica borde 1px) ===
-      // top
-      ctx.drawImage(tex.getSourceImage(), ox, oy, this.fw, 1, ox, oy - EXTRUDE, this.fw, EXTRUDE);
-      // bottom
-      ctx.drawImage(tex.getSourceImage(), ox, oy + this.fw - 1, this.fw, 1, ox, oy + this.fh, this.fw, EXTRUDE);
-      // left
-      ctx.drawImage(tex.getSourceImage(), ox, oy, 1, this.fh, ox - EXTRUDE, oy, EXTRUDE, this.fh);
-      // right
-      ctx.drawImage(tex.getSourceImage(), ox + this.fw - 1, oy, 1, this.fh, ox + this.fw, oy, EXTRUDE, this.fh);
+        // === extrusión de bordes (duplica borde) ===
+        // top
+        ctx.drawImage(tex.getSourceImage(), ox, oy, this.fw, 1, ox, oy - EXTRUDE, this.fw, EXTRUDE);
+        // bottom (usa this.fh, no this.fw)
+        ctx.drawImage(tex.getSourceImage(), ox, oy + this.fh - 1, this.fw, 1, ox, oy + this.fh, this.fw, EXTRUDE);
+        // left
+        ctx.drawImage(tex.getSourceImage(), ox, oy, 1, this.fh, ox - EXTRUDE, oy, EXTRUDE, this.fh);
+        // right
+        ctx.drawImage(tex.getSourceImage(), ox + this.fw - 1, oy, 1, this.fh, ox + this.fw, oy, EXTRUDE, this.fh);
+      }
+      rowIndex++;
     }
-    rowIndex++;
-  }
 
-  tex.refresh();
+    tex.refresh();
 
-  // Registrar frames usando SOLO el rectángulo del frame real (sin extrusión)
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const cellX = PAD + c * cellW;
-      const cellY = PAD + r * cellH;
-      const fx = cellX + EXTRUDE;
-      const fy = cellY + EXTRUDE;
-      const index = r * cols + c;
-      tex.add(String(index), 0, fx, fy, this.fw, this.fh);
+    // Registrar frames usando SOLO el rectángulo del frame real (sin extrusión)
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cellX = PAD + c * cellW;
+        const cellY = PAD + r * cellH;
+        const fx = cellX + EXTRUDE;
+        const fy = cellY + EXTRUDE;
+        const index = r * cols + c;
+        tex.add(String(index), 0, fx, fy, this.fw, this.fh);
+      }
     }
+
+    try {
+      this.scene.textures.get(this.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    } catch {}
+    return this.key;
   }
-
-  try { this.scene.textures.get(this.key).setFilter(Phaser.Textures.FilterMode.NEAREST); } catch {}
-  return this.key;
-}
-
 
   createAnimations({
     fps = { idle: 6, walk: 12, jump: 10, fall: 10 },
@@ -130,7 +151,10 @@ buildSheet() {
 
     const mk = (name, row, from, to, fr, rep) => {
       if (this.scene.anims.exists(name)) return;
-      const frames = this.scene.anims.generateFrameNumbers(key, { start: row * cols + from, end: row * cols + to });
+      const frames = this.scene.anims.generateFrameNumbers(key, {
+        start: row * cols + from,
+        end:   row * cols + to
+      });
       this.scene.anims.create({ key: name, frames, frameRate: fr, repeat: rep });
     };
 
@@ -142,15 +166,42 @@ buildSheet() {
     return key;
   }
 
-  spawn(x, y, { anim = "idle", display = { w: 56, h: 56 } } = {}) {
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {{
+   *   anim?: string,
+   *   display?: {w:number, h:number},
+   *   pixelPerfect?: boolean
+   * }} [opts]
+   */
+  spawn(x, y, {
+    anim = "idle",
+    display = { w: 64, h: 64 }, // por defecto: tamaño nativo
+    pixelPerfect = true         // escala entera por defecto (evita "pixel fantasma")
+  } = {}) {
     const key = this.createAnimations();
     const s = this.scene.physics.add.sprite(x, y, key, 0)
-      .setOrigin(0.5, 1)
+      .setOrigin(0.5, 1)          // pivote en los pies
       .setCollideWorldBounds(false)
       .setBounce(0.05);
 
-    s.displayWidth = display.w;
-    s.displayHeight = display.h;
+    if (pixelPerfect) {
+      // Escala entera a partir del tamaño nativo del frame (fw, fh)
+      const sx = Math.max(1, Math.round(display.w / this.fw));
+      const sy = Math.max(1, Math.round(display.h / this.fh));
+      s.setScale(sx, sy);
+    } else {
+      // Si realmente necesitas un tamaño específico (no recomendado para pixel art),
+      // esto puede reintroducir artefactos de sampling:
+      s.displayWidth  = display.w;
+      s.displayHeight = display.h;
+    }
+
+    // Sugerencia extra: asegura roundPixels en la cámara (por si la escena no lo hizo)
+    if (this.scene?.cameras?.main) {
+      this.scene.cameras.main.roundPixels = true;
+    }
 
     if (this.scene.anims.exists(anim)) s.play(anim);
     return { sprite: s, sheetKey: key, cols: this._cols };
@@ -159,12 +210,21 @@ buildSheet() {
   // ───────────────────────── Render de frames ─────────────────────────
   #paintFrame(ctx, state, i, n, ox, oy) {
     const t = (i / Math.max(1, n)) * Math.PI * 2;
-    this.#shadow(ctx, ox, oy, state, i, n);
-    this.#catSilhouette(ctx, ox, oy, state, t);
-    this.#face(ctx, ox, oy, state, t);
-    this.#paws(ctx, ox, oy, state, t);
-    this.#tail(ctx, ox, oy, state, t);
-    this.#highlights(ctx, ox, oy, state, t);
+
+    // ΔY SOLO cuando state !== "idle" (sube 2 px por defecto)
+    const yOff = (state !== "idle") ? (this.bodyYOffsetNonIdle ?? -2) : 0;
+
+    // El cuerpo y rasgos se dibujan con oyBody; la sombra puede acompañar o no.
+    const oyBody   = oy + yOff;
+    const oyShadow = (this.moveShadowWithBody && state !== "idle") ? oyBody : oy;
+
+    // Dibujo en orden (sombra debajo)
+    this.#shadow(ctx, ox, oyShadow, state, i, n);
+    this.#catSilhouette(ctx, ox, oyBody, state, t);
+    this.#face(ctx, ox, oyBody, state, t);
+    this.#paws(ctx, ox, oyBody, state, t);
+    this.#tail(ctx, ox, oyBody, state, t);
+    this.#highlights(ctx, ox, oyBody, state, t);
   }
 
   // Sombra (contacto suelo)
@@ -172,20 +232,24 @@ buildSheet() {
     const w = this.fw, h = this.fh;
     const by = oy + h - 2;
     const cx = ox + (w >> 1);
-    const phase = state === "walk" ? 1.0 : state === "idle" ? 0.92 + 0.08 * Math.sin((i / Math.max(1,n)) * Math.PI * 2) : 0.85;
+    const phase =
+      state === "walk" ? 1.0 :
+      state === "idle" ? 0.92 + 0.08 * Math.sin((i / Math.max(1,n)) * Math.PI * 2) :
+      0.85;
     const rx = Math.floor(w * 0.34 * phase);
     const ry = Math.max(2, Math.floor(h * 0.065));
     ctx.globalAlpha = 0.20;
-    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.ellipse(cx, by, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.ellipse(cx, by, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
   }
 
-  // Cuerpo con “pelos”: bloque principal + pecho claro + bordes irregulares
+  // Cuerpo con “pelos”: bloque principal + pecho + bordes dentados + orejas
   #catSilhouette(ctx, ox, oy, state, t) {
     const w = this.fw, h = this.fh;
     const pal = this.pal;
 
-    const baseY = oy + Math.floor(h * 0.78); // gato “bajito”
+    const baseY = oy + Math.floor(h * 0.78); // base del cuerpo
     const cx = ox + (w >> 1);
 
     // leve bob
@@ -207,7 +271,7 @@ buildSheet() {
     ctx.beginPath(); ctx.ellipse(cx + 2, baseY + bob + 2, rw, rh, 0, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
 
-    // pecho claro (triángulo/semicírculo)
+    // pecho claro
     ctx.globalAlpha = 0.85; ctx.fillStyle = pal.furLight;
     ctx.beginPath(); ctx.arc(cx - 2, baseY + bob - Math.floor(rh * 0.4), Math.floor(rh * 0.85), 0, Math.PI * 2);
     ctx.fill(); ctx.globalAlpha = 1;
@@ -270,7 +334,7 @@ buildSheet() {
     ctx.fillRect(cx - eyeDx - 2, cy - 1, 3, 2 - squint);
     ctx.fillRect(cx + eyeDx + 0, cy - 1, 3, 2 - squint);
 
-    // ceño (líneas arriba de ojos)
+    // ceño
     ctx.fillStyle = pal.furDark;
     ctx.fillRect(cx - eyeDx - eyeW + 1, cy - 3, eyeW, 1);
     ctx.fillRect(cx + eyeDx - 1,         cy - 3, eyeW, 1);
@@ -314,7 +378,7 @@ buildSheet() {
     // segmento 1
     ctx.fillStyle = pal.furMid;
     ctx.fillRect(base.x, base.y - 2, 6, 2);
-    // segmento 2 (curva)dd
+    // segmento 2 (curva)
     ctx.fillRect(base.x + 5, base.y - 3 - Math.round(phase * 0.5), 5, 2);
     // punta
     ctx.fillStyle = pal.furLight;

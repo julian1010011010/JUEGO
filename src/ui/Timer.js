@@ -18,7 +18,7 @@ export class Timer {
   constructor(scene, defaults = {}) {
     this.scene = scene;
     this.defaults = Object.assign({
-      start: 3,
+      start: 1,
       title: 'READY?',
       subtitle: '',
       message: '',

@@ -5,6 +5,7 @@ import PlayerController from "../player/PlayerController";
 import gameConfig from "../config/GameConfig.js";
 import LavaParticle from "../effects/LavaParticle";
 import { playLavaDeath } from "../effects/playLavaDeath";
+import { playLavaDeathSoulStar } from "../effects/lavaSoulDeath";
 import UserInfo from "../user/UserInfo";
 import SoundFX from "../audio/SoundFX";
 import BackgroundFactory from "../backgrounds/BackgroundFactory";
@@ -876,7 +877,7 @@ create() {
       this._playedLavaAnim = true;
       // Lava: usar la cinemática Terminator; Misil: usar mismo flujo visual simple (sin thumb)
       if (cause === "lava") {
-        playLavaDeath(this, this.player, this.lava, {
+        playLavaDeathSoulStar(this, this.player, this.lava, {
           sinkDuration: 1200,
           thumbDuration: 900,
           cameraZoom: 2.1,
