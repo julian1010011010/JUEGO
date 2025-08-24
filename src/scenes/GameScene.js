@@ -26,6 +26,7 @@ import {
 //import PlayerCharacter from "../sprites/animation/player/Rocko.js";
 //import PlayerCharacter from "../sprites/animation/player/Mocko.js";
 import PlayerCharacter from "../sprites/animation/player/Rocko.js";
+import TextureFactory from "../textures/TextureFactory"; // NUEVO: importar TextureFactory
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super("game");
@@ -100,7 +101,7 @@ export default class GameScene extends Phaser.Scene {
     // Corrige la carga del fondo
     SoundFX.preload(this);
     this.load.audio("sfx-sonar", "assets/audio/sonar.mp3"); // <-- Cambiado a assets/audio/
-    this.createTextures();
+    TextureFactory.createTextures(this); // NUEVO: usar TextureFactory
     this.load.image("terminator", "assets/images/terminator.png");
     preloadLadyLava(this); // Si ladyLava usa rutas internas, revisa ese archivo también
     // ✅ Cargar el sheet UNA VEZ con la key que usaremos en todo el flujo
@@ -136,9 +137,6 @@ export default class GameScene extends Phaser.Scene {
       });
       return;
     }
-
-
- 
 
     // Audio
     this.sfx = new SoundFX(this);
@@ -865,67 +863,94 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  gameOver(cause) {
-    this.sfx.gameOver(); // Reproduce el sonido de game over
-    // Evita repeticiones de animación y lógica de muerte
-    if (this._ended || this._playedLavaAnim) return;
-    this._ended = true;
+/**
+ * Maneja el fin de la partida: apaga spawners/controles, registra récord
+ * y ejecuta la cinemática correspondiente a la causa antes de mostrar el overlay.
+ *
+ * Idempotente: si ya terminó o una cinemática está en curso, sale sin repetir.
+ *
+ * @param {"lava"|"missile"|string} cause Causa de la muerte.
+ */
+gameOver(cause) {
+  // 1) SFX inmediato (feedback) — mantenemos tu comportamiento actual
+  try { this.sfx?.gameOver?.(); } catch {}
 
-    // Parar spawner y limpiar misiles restantes
-    this._lavaMissileTimer?.remove(false);
-    this._lavaMissileTimer = null;
-    // Limpieza segura del grupo de misiles (evita acceder a children indefinido)
-    this.clearLavaMissiles();
+  // 2) Guardas de idempotencia
+  if (this._ended || this._playedLavaAnim) return;
+  this._ended = true;
 
-    // Desactivar el controlador del jugador para evitar movimiento tras la muerte
-    if (this.playerCtrl && typeof this.playerCtrl.disable === "function") {
-      this.playerCtrl.disable();
-    } else if (this.playerCtrl) {
-      // Si no existe método disable, desactiva el input y la física manualmente
-      try {
-        this.playerCtrl.active = false;
-      } catch {}
-      try {
-        if (this.player && this.player.body) this.player.body.enable = false;
-      } catch {}
-    }
+  // 3) Apagar spawner de misiles y limpiar remanentes (seguro)
+  try { this._lavaMissileTimer?.remove(false); } catch {}
+  this._lavaMissileTimer = null;
+  try { this.clearLavaMissiles?.(); } catch {}
 
-    this.best = Math.max(this.best, this.score);
-    localStorage.setItem("best_score", String(this.best));
-
-    const showOverlay = () => {
-      if (this.finalText)
-        this.finalText.textContent = `Puntos: ${this.score} — Récord: ${this.best}`;
-      if (this.overlay) this.overlay.style.display = "flex";
-    };
-
-    // Ejecuta la animación de muerte antes de mostrar overlay
-    if ((cause === "lava" || cause === "missile") && !this._playedLavaAnim) {
-      this._playedLavaAnim = true;
-      // Lava: usar la cinemática Terminator; Misil: usar mismo flujo visual simple (sin thumb)
-      if (cause === "lava") {
-        playLavaDeathSoulStar(this, this.player, this.lava, {
-          sinkDuration: 1200,
-          thumbDuration: 900,
-          cameraZoom: 2.1,
-          useMask: true,
-          bubbleFX: false,
-        }).then(showOverlay);
-      } else {
-        const rock = this._lastRock ?? this.player; // fallback por seguridad
-        playLavaRockShatterDeath(this, this.player, rock, {
-          sfx: {
-            impact: () => this.sfx?.play?.("thud"),
-            crack: () => this.sfx?.play?.("crack"),
-            shatter: () => this.sfx?.play?.("shatter"),
-          },
-        }).then(showOverlay);
-        return;
-      }
-    } else {
-      showOverlay();
-    }
+  // 4) Desactivar control del jugador (preferir método del controlador)
+  if (this.playerCtrl?.disable) {
+    try { this.playerCtrl.disable(); } catch {}
+  } else {
+    // Fallback: desactivar input/physics manualmente
+    try { this.playerCtrl && (this.playerCtrl.active = false); } catch {}
+    try { this.player?.body && (this.player.body.enable = false); } catch {}
   }
+
+  // 5) Persistir mejor puntaje
+  try {
+    this.best = Math.max(this.best || 0, this.score || 0);
+    localStorage.setItem("best_score", String(this.best));
+  } catch {}
+
+  // 6) Helper local para mostrar overlay (UI final)
+  const showOverlay = () => {
+    try {
+      if (this.finalText) {
+        this.finalText.textContent = `Puntos: ${this.score} — Récord: ${this.best}`;
+      }
+      if (this.overlay) this.overlay.style.display = "flex";
+    } catch {}
+  };
+
+  // 7) Mapa de handlers de cinemática por causa
+  /** @type {Record<string, () => Promise<void>>} */
+  const handlers = {
+ 
+    lava: () => playLavaDeathSoulStar(this, this.player, this.lava, {
+      sinkDuration: 1200,
+      thumbDuration: 900,
+      cameraZoom: 2.1,
+      useMask: true,
+      bubbleFX: false,
+    }),
+
+    // Muerte por piedra/misil de lava: impacto -> grietas -> astillas
+    missile: () => {
+      const rock = this._lastRock ?? this.player; 
+      return playLavaRockShatterDeath(this, this.player, rock, {
+        sfx: {
+          impact:  () => this.sfx?.play?.("thud"),
+          crack:   () => this.sfx?.play?.("crack"),
+          shatter: () => this.sfx?.play?.("shatter"),
+        }
+      });
+    },
+  };
+
+  // 8) Ejecutar cinemática si existe handler para la causa
+  const playCinematic = handlers[String(cause)] || null;
+
+  if (playCinematic && !this._playedLavaAnim) {
+    this._playedLavaAnim = true;
+    // Ejecutar y al terminar, mostrar overlay
+    Promise.resolve()
+      .then(() => playCinematic())
+      .then(() => showOverlay())
+      .catch(() => showOverlay());
+    return; // Importante: evitar que caiga al showOverlay() directo
+  }
+
+  // 9) Causa sin cinemática o ya en curso: mostrar overlay inmediato
+  showOverlay();
+}
+
   enableLavaMissiles() {
     if (this._missilesState === "on") return;
     gameConfig.lavaMissiles.enabled = true;
@@ -944,7 +969,7 @@ export default class GameScene extends Phaser.Scene {
     this._missilesState = "off";
   }
   createTextures() {
-    this._missilesState = gameConfig.lavaMissiles.enabled ? "on" : "off"; 
+    this._missilesState = gameConfig.lavaMissiles.enabled ? "on" : "off";
     this._freezeAt10mFired = false; // evita repetir el freeze de 10 m
     // umbral de apagado
     const g = this.make.graphics({ x: 0, y: 0, add: false });
