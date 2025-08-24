@@ -140,7 +140,7 @@ export default class GameScene extends Phaser.Scene {
       this.scale.height,
      18
     );
-    this.bg.createBackground("night", { mode: "animated", fps: 10 }); 
+    this.bg.createBackground("night", { mode: "animated", fps: 12 }); 
     // Lady Lava (sprite animado oculto hasta la cinemática)
     const walkKey = createLadyLavaAnimation(this);
     this.ladyLavaSprite = this.add
