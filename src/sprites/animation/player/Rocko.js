@@ -17,11 +17,11 @@ const CAT_PAL = {
   nose:     "#6a4a48", // nariz
   mouth:    "#2a2222",
   whisker:  "#e8e3df",
-  earIn:    "#b78f8b",
+  earIn:    "#423434ff",
   glow:     "#ffffff"
 };
 
-export default class ProceduralPlayerFactory {
+export default class RockoPlayer {
   /**
    * @param {Phaser.Scene} scene
    * @param {Object} opts

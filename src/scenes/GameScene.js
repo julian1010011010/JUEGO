@@ -21,8 +21,8 @@ import {
   spawnPlayerFromSheet,
 } from "../sprites/animation/player/PlayerAnimation";
 
-import ProceduralPlayerFactory from "../sprites/animation/player/Rocko.js";
- 
+import RockoPlayer from "../sprites/animation/player/Rocko.js";
+ import PlayerMocko from "../sprites/animation/player/Mocko.js";
 
 
 export default class GameScene extends Phaser.Scene {
@@ -198,11 +198,10 @@ create() {
   // ────────────────────────────────────────────────────────────────────────────
   // 3) Jugador procedimental + PlayerController
   // ────────────────────────────────────────────────────────────────────────────
-  // ⚠ Requiere:
-  // import ProceduralPlayerFactory from "../sprites/procedural/ProceduralPlayerFactory";
+  // ⚠ Requiere: 
   // import PlayerController from "../player/PlayerController";
 
-  const pFactory = new ProceduralPlayerFactory(this, {
+  const pFactory = new PlayerMocko(this, {
     fw: 64, fh: 64,
     frames: { idle: 6, walk: 8, jump: 4, fall: 2 },
     keyPrefix: "pchar"
